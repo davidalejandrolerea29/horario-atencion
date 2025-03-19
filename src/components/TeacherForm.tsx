@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle } from 'lucide-react';
 import { CURSOS_DIVISIONES, DIAS } from '../types';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -31,15 +31,32 @@ export function TeacherForm() {
   }]);
 
   const [subjectsByCourse, setSubjectsByCourse] = useState<Record<string, Subject[]>>({});
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const addSchedule = () => {
-    setSchedules([...schedules, {
-      curso: CURSOS_DIVISIONES[0],
-      materia: '',
-      dia: DIAS[0],
-      horaInicio: '08:00',
-      horaFin: '09:00',
-    }]);
+  const addSchedule = async () => {
+    const newCurso = CURSOS_DIVISIONES[0]; // Curso por defecto
+    let firstMateria = '';
+  
+    // Cargar materias para el curso por defecto si no están en el estado
+    if (!subjectsByCourse[newCurso]) {
+      const subjects = await loadSubjectsForCourse(newCurso);
+      if (subjects.length > 0) {
+        firstMateria = subjects[0].id; // Asignar la primera materia disponible
+      }
+    } else {
+      firstMateria = subjectsByCourse[newCurso][0]?.id || '';
+    }
+  
+    setSchedules([
+      ...schedules,
+      {
+        curso: newCurso,
+        materia: firstMateria,
+        dia: DIAS[0],
+        horaInicio: '08:00',
+        horaFin: '09:00',
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -62,24 +79,22 @@ export function TeacherForm() {
     setSchedules(schedules.filter((_, i) => i !== index));
   };
 
-  const updateSchedule = (index: number, field: keyof SubjectSchedule, value: string) => {
+  const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
     const newSchedules = [...schedules];
     newSchedules[index] = { ...newSchedules[index], [field]: value };
   
-    // Si el campo que se actualizó es 'curso', vuelve a cargar las materias para ese curso
     if (field === 'curso') {
-      loadSubjectsForCourse(value).then((subjects) => {
-        // Asigna el primer ID de materia si el campo materia está vacío
-        if (!newSchedules[index].materia && subjects.length > 0) {
-          newSchedules[index].materia = subjects[0].id;
-        }
-        setSchedules(newSchedules);
-      });
-    } else {
-      setSchedules(newSchedules);
+      const subjects = await loadSubjectsForCourse(value);
+      if (subjects.length > 0) {
+        newSchedules[index].materia = subjects[0].id; // Seleccionar la primera materia del curso
+      } else {
+        console.warn(`No hay materias para el curso ${value}`);
+        newSchedules[index].materia = ''; // Vaciar la materia si no hay disponibles
+      }
     }
-  };
   
+    setSchedules(newSchedules);
+  };
 
   const loadSubjectsForCourse = async (cursoCompleto: string) => {
     const [curso, division] = cursoCompleto.split(' ');
@@ -145,8 +160,9 @@ export function TeacherForm() {
       console.error('Error al guardar los horarios:', schedulesError);
       return;
     }
-  
-    navigate('/');
+    setSuccessMessage('Su horario ha sido registrado, Muchas gracias');
+    setTimeout(() => setSuccessMessage(''), 3000);
+
   };
   
   // Función para verificar si una cadena es un UUID válido
@@ -171,8 +187,15 @@ const validateMateria = () => {
   
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+   
+      <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          {successMessage && (
+            <div className="flex items-center p-4 mb-4 text-green-700 bg-green-100 rounded-lg">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {successMessage}
+            </div>
+          )}
         <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Registro de Horarios de Consulta</h2>
           

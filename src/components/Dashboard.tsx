@@ -54,17 +54,81 @@ export function Dashboard() {
   }
 
   const exportToPDF = () => {
-    const element = document.getElementById('teacher-schedule');
+    // Agrupar profesores por curso y división
+    const groupedTeachers: Record<string, TeacherWithSchedules[]> = {};
+  
+    teachers.forEach((teacher) => {
+      teacher.teacher_subjects.forEach((schedule) => {
+        const key = `${schedule.subject?.curso} ${schedule.subject?.division}`;
+        if (!groupedTeachers[key]) {
+          groupedTeachers[key] = [];
+        }
+        if (!groupedTeachers[key].includes(teacher)) {
+          groupedTeachers[key].push(teacher);
+        }
+      });
+    });
+  
+    // Ordenar según CURSOS_DIVISIONES
+    const sortedGroups = CURSOS_DIVISIONES.filter((cd) => groupedTeachers[cd]);
+  
+    // Construir el contenido de la tabla para el PDF
+    let pdfContent = `
+      <div style="font-family: Arial, sans-serif;">
+        <h2 style="text-align: center;">Horarios de Atención a padres</h2>
+    `;
+  
+    sortedGroups.forEach((group) => {
+      pdfContent += `
+        <h3 style="margin-top: 20px; color: #333;">${group}</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="border: 1px solid #ddd; padding: 8px;">Profesor</th>
+              <th style="border: 1px solid #ddd; padding: 8px;">Materia</th>
+              <th style="border: 1px solid #ddd; padding: 8px;">Día</th>
+              <th style="border: 1px solid #ddd; padding: 8px;">Horario</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+  
+      groupedTeachers[group].forEach((teacher) => {
+        teacher.teacher_subjects
+          .filter((s) => `${s.subject?.curso} ${s.subject?.division}` === group)
+          .forEach((schedule) => {
+            pdfContent += `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${teacher.apellido}, ${teacher.nombre}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.subject?.nombre}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.dia}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.hora_inicio} - ${schedule.hora_fin}</td>
+              </tr>
+            `;
+          });
+      });
+  
+      pdfContent += `
+          </tbody>
+        </table>
+      `;
+    });
+  
+    pdfContent += `</div>`;
+  
+    // Configuración de html2pdf para convertir la tabla a PDF
     const opt = {
-      margin: 1,
+      margin: 10,
       filename: 'horarios-atencion.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
-    
-    html2pdf().set(opt).from(element).save();
+  
+    html2pdf().set(opt).from(pdfContent).save();
   };
+  
+  
 
   // Función para agrupar las materias por curso y división según el orden definido
   const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
@@ -97,29 +161,30 @@ export function Dashboard() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">Horarios de Consulta</h2>
-            <div className="flex gap-4">
-              <Link
-                to="/materias"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-              >
-                <BookOpen size={20} />
-                Gestionar Materias
-              </Link>
-              <Link
-                to="/nuevo"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <Plus size={20} />
-                Nuevo Horario
-              </Link>
-              <button
-                onClick={exportToPDF}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                <Download size={20} />
-                Exportar PDF
-              </button>
-            </div>
+            <div className="flex flex-col sm:flex-row sm:gap-4 gap-2 sm:items-center w-full">
+  <Link
+    to="/materias"
+    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
+  >
+    <BookOpen size={20} />
+    Gestionar Materias
+  </Link>
+  <Link
+    to="/nuevo"
+    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
+  >
+    <Plus size={20} />
+    Nuevo Horario
+  </Link>
+  <button
+    onClick={exportToPDF}
+    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
+  >
+    <Download size={20} />
+    Exportar PDF
+  </button>
+</div>
+
           </div>
 
           <div id="teacher-schedule" className="overflow-x-auto">
