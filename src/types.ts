@@ -10,6 +10,7 @@ export interface Subject {
   nombre: string;
   curso: string;
   division: string;
+  order: number;
 }
 
 export interface TeacherSubject {
@@ -20,6 +21,7 @@ export interface TeacherSubject {
   hora_inicio: string;
   hora_fin: string;
   subject?: Subject;
+  genero?:string;
 }
 
 export const CURSOS_DIVISIONES = [

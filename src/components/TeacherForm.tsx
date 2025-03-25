@@ -10,6 +10,7 @@ interface SubjectSchedule {
   dia: string;
   horaInicio: string;
   horaFin: string;
+  genero?: string;
 }
 
 interface Subject {
@@ -82,20 +83,30 @@ export function TeacherForm() {
   const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
     const newSchedules = [...schedules];
     newSchedules[index] = { ...newSchedules[index], [field]: value };
-  
-    if (field === 'curso') {
-      const subjects = await loadSubjectsForCourse(value);
-      if (subjects.length > 0) {
-        newSchedules[index].materia = subjects[0].id; // Seleccionar la primera materia del curso
+
+    // Si cambia la materia a "Educación Física", asegurarse de agregar el campo de género
+    if (field === 'materia') {
+      const subjectName = subjectsByCourse[newSchedules[index].curso]?.find(sub => sub.id === value)?.nombre;
+      if (subjectName === 'Educación Física') {
+        newSchedules[index].genero = 'Varones'; // Valor por defecto
       } else {
-        console.warn(`No hay materias para el curso ${value}`);
-        newSchedules[index].materia = ''; // Vaciar la materia si no hay disponibles
+        delete newSchedules[index].genero;
       }
     }
-  
+
     setSchedules(newSchedules);
   };
-
+  useEffect(() => {
+    schedules.forEach((schedule, index) => {
+      if (!subjectsByCourse[schedule.curso]) {
+        loadSubjectsForCourse(schedule.curso).then((subjects) => {
+          if (subjects.length > 0 && !schedule.materia) {
+            updateSchedule(index, 'materia', subjects[0].id);
+          }
+        });
+      }
+    });
+  }, [schedules, subjectsByCourse]);
   const loadSubjectsForCourse = async (cursoCompleto: string) => {
     const [curso, division] = cursoCompleto.split(' ');
     const { data, error } = await supabase.from('subjects').select('id, nombre').eq('curso', curso).eq('division', division);
@@ -134,14 +145,18 @@ export function TeacherForm() {
     // Usar el ID del profesor para asociarlo con los horarios
     const teacherSubjects = schedules.map(schedule => {
       console.log('Materia:', schedule.materia); // Verifica el valor del subject_id
+      const subjectName = subjectsByCourse[schedule.curso]?.find(sub => sub.id === schedule.materia)?.nombre;
+      
       return {
-        teacher_id: teacherData.id, // Asociamos el ID del profesor con cada horario
-        subject_id: schedule.materia, // Esto debe ser el ID de la materia
+        teacher_id: teacherData.id,
+        subject_id: schedule.materia,
         dia: schedule.dia,
         hora_inicio: schedule.horaInicio,
         hora_fin: schedule.horaFin,
+        ...(subjectName === 'Educación Física' ? { genero: schedule.genero } : {}), // Solo agrega 'genero' si es Educación Física
       };
     });
+    
   
     // Asegúrate de que el subject_id es un UUID antes de enviar los datos
     teacherSubjects.forEach(subject => {
@@ -266,10 +281,20 @@ const validateMateria = () => {
   ))}
 </select>
 
-
-
-
-                  </div>
+{schedule.genero !== undefined && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Género</label>
+                      <select
+                        value={schedule.genero}
+                        onChange={(e) => updateSchedule(index, 'genero', e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      >
+                        <option value="Varones">Varones</option>
+                        <option value="Mujeres">Mujeres</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Día de Consulta</label>

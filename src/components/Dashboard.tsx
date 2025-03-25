@@ -8,6 +8,7 @@ import type { Teacher, TeacherSubject } from '../types';
 
 interface TeacherWithSchedules extends Teacher {
   teacher_subjects: TeacherSubject[];
+
 }
 
 export function Dashboard() {
@@ -30,18 +31,25 @@ export function Dashboard() {
 
     const teachersWithSchedules = await Promise.all(
       (teachersData || []).map(async (teacher) => {
-        const { data: schedulesData } = await supabase
-          .from('teacher_subjects')
-          .select(`
-            *,
-            subject:subject_id (
-              id,
-              nombre,
-              curso,
-              division
-            )
-          `)
-          .eq('teacher_id', teacher.id);
+        const { data: schedulesData, error: schedulesError } = await supabase
+        .from('teacher_subjects')
+        .select(`
+          *,
+          subject:subject_id (
+            id,
+            nombre,
+            curso,
+            division,
+            order
+          ),
+          genero
+        `)
+        .eq('teacher_id', teacher.id)
+        .order('order', { foreignTable: 'subject', ascending: true }); // Ordenar por el campo 'order' de la tabla 'subjects'
+      // Ordenar por el campo 'order' de la tabla 'subjects'
+      
+      
+
 
         return {
           ...teacher,
@@ -53,12 +61,16 @@ export function Dashboard() {
     setTeachers(teachersWithSchedules);
   }
 
+  // Exportación a PDF
   const exportToPDF = () => {
     // Agrupar profesores por curso y división
     const groupedTeachers: Record<string, TeacherWithSchedules[]> = {};
   
     teachers.forEach((teacher) => {
       teacher.teacher_subjects.forEach((schedule) => {
+        if (schedule.subject?.order === undefined) {
+          console.error(`La materia ${schedule.subject?.nombre} no tiene un valor de 'order' definido.`);
+        }
         const key = `${schedule.subject?.curso} ${schedule.subject?.division}`;
         if (!groupedTeachers[key]) {
           groupedTeachers[key] = [];
@@ -69,7 +81,7 @@ export function Dashboard() {
       });
     });
   
-    // Ordenar según CURSOS_DIVISIONES
+    // Ordenar los grupos de curso y división
     const sortedGroups = CURSOS_DIVISIONES.filter((cd) => groupedTeachers[cd]);
   
     // Construir el contenido de la tabla para el PDF
@@ -94,19 +106,36 @@ export function Dashboard() {
       `;
   
       groupedTeachers[group].forEach((teacher) => {
-        teacher.teacher_subjects
+        const sortedSubjects = teacher.teacher_subjects
           .filter((s) => `${s.subject?.curso} ${s.subject?.division}` === group)
-          .forEach((schedule) => {
-            pdfContent += `
-              <tr>
-                <td style="border: 1px solid #ddd; padding: 8px;">${teacher.apellido}, ${teacher.nombre}</td>
-                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.subject?.nombre}</td>
-                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.dia}</td>
-                <td style="border: 1px solid #ddd; padding: 8px;">${schedule.hora_inicio} - ${schedule.hora_fin}</td>
-              </tr>
-            `;
+          .sort((a, b) => {
+            const orderA = a.subject?.order || 0;  // Si no hay orden, asignar 0
+            const orderB = b.subject?.order || 0;  // Si no hay orden, asignar 0
+            return orderA - orderB;  // Ordenar por 'order' de menor a mayor
           });
+      
+        console.log('Sorted Subjects:', sortedSubjects);  // Verifica el orden aquí
+      
+        // Resto de la lógica para construir el contenido del PDF
+    
+      
+        // Agregar las materias ordenadas al contenido del PDF
+        sortedSubjects.forEach((schedule) => {
+          pdfContent += `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">${teacher.apellido}, ${teacher.nombre}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">
+                ${schedule.subject?.nombre} 
+                ${schedule.subject?.nombre === 'Educación Física' && schedule.genero ? `(${schedule.genero})` : ''}
+              </td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${schedule.dia}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${schedule.hora_inicio} - ${schedule.hora_fin}</td>
+            </tr>
+          `;
+        });
       });
+      
+      
   
       pdfContent += `
           </tbody>
@@ -128,32 +157,34 @@ export function Dashboard() {
     html2pdf().set(opt).from(pdfContent).save();
   };
   
+
   
+const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
+  const grouped: Record<string, TeacherSubject[]> = {};
 
-  // Función para agrupar las materias por curso y división según el orden definido
-  const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
-    const grouped: Record<string, TeacherSubject[]> = {};
-
-    teacherSubjects.forEach((schedule) => {
-      const key = `${schedule.subject?.curso} ${schedule.subject?.division}`;
-      if (key) {
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
-        grouped[key].push(schedule);
+  teacherSubjects.forEach((schedule) => {
+    const key = `${schedule.subject?.curso} ${schedule.subject?.division}`;
+    if (key) {
+      if (!grouped[key]) {
+        grouped[key] = [];
       }
-    });
+      grouped[key].push(schedule);
+    }
+  });
 
-    // Ordenar las claves de acuerdo con el array CURSOS_DIVISIONES
-    const sortedGrouped: { group: CursoDivision, schedules: TeacherSubject[] }[] = CURSOS_DIVISIONES
-      .filter(courseDivision => grouped[courseDivision])
-      .map((courseDivision) => ({
-        group: courseDivision,
-        schedules: grouped[courseDivision],
-      }));
+  // Ahora que las materias están agrupadas por curso y división, ya están en su orden
+  // original tal como están en la base de datos.
+  const sortedGrouped: { group: CursoDivision, schedules: TeacherSubject[] }[] = CURSOS_DIVISIONES
+    .filter(courseDivision => grouped[courseDivision])
+    .map((courseDivision) => ({
+      group: courseDivision,
+      schedules: grouped[courseDivision], // Las materias ya están en su orden predefinido
+    }));
 
-    return sortedGrouped;
-  };
+  return sortedGrouped;
+};
+
+
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
