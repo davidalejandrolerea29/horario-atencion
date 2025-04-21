@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Clock, Plus, BookOpen } from 'lucide-react';
+import { Download, Clock, Plus, BookOpen, Trash } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { supabase } from '../lib/supabase';
@@ -106,13 +106,13 @@ export function Dashboard() {
       `;
   
       groupedTeachers[group].forEach((teacher) => {
+        
         const sortedSubjects = teacher.teacher_subjects
-          .filter((s) => `${s.subject?.curso} ${s.subject?.division}` === group)
-          .sort((a, b) => {
-            const orderA = a.subject?.order || 0;  // Si no hay orden, asignar 0
-            const orderB = b.subject?.order || 0;  // Si no hay orden, asignar 0
-            return orderA - orderB;  // Ordenar por 'order' de menor a mayor
-          });
+            .filter((s) => `${s.subject?.curso} ${s.subject?.division}` === group)
+            .sort((a, b) => (a.subject?.order || 0) - (b.subject?.order || 0));
+ 
+      
+      
       
         console.log('Sorted Subjects:', sortedSubjects);  // Verifica el orden aquí
       
@@ -121,6 +121,7 @@ export function Dashboard() {
       
         // Agregar las materias ordenadas al contenido del PDF
         sortedSubjects.forEach((schedule) => {
+          console.log(`Materia: ${schedule.subject?.nombre}, Orden: ${schedule.subject?.order}`);
           pdfContent += `
             <tr>
               <td style="border: 1px solid #ddd; padding: 8px;">${teacher.apellido}, ${teacher.nombre}</td>
@@ -157,13 +158,61 @@ export function Dashboard() {
     html2pdf().set(opt).from(pdfContent).save();
   };
   
-
+  async function cleanDuplicateSchedules() {
+    const { data: allSchedules, error } = await supabase
+      .from('teacher_subjects')
+      .select('id, teacher_id, subject_id, dia, hora_inicio, hora_fin');
+  
+    if (error) {
+      console.error('Error al cargar horarios:', error);
+      return;
+    }
+  
+    const seen = new Map<string, number[]>();
+    const duplicatesToDelete: number[] = [];
+  
+    (allSchedules || []).forEach((item) => {
+      const key = `${item.teacher_id}-${item.subject_id}-${item.dia}-${item.hora_inicio}-${item.hora_fin}`;
+      if (!seen.has(key)) {
+        seen.set(key, [item.id]);
+      } else {
+        seen.get(key)!.push(item.id);
+      }
+    });
+  
+    // Reunimos todos menos el primero (que se mantiene)
+    for (const [, ids] of seen) {
+      if (ids.length > 1) {
+        duplicatesToDelete.push(...ids.slice(1));
+      }
+    }
+  
+    if (duplicatesToDelete.length === 0) {
+      alert('No se encontraron horarios duplicados.');
+      return;
+    }
+  
+    const { error: deleteError } = await supabase
+      .from('teacher_subjects')
+      .delete()
+      .in('id', duplicatesToDelete);
+  
+    if (deleteError) {
+      console.error('Error eliminando duplicados:', deleteError);
+      return;
+    }
+  
+    alert(`Se eliminaron ${duplicatesToDelete.length} horarios duplicados.`);
+    await loadTeachers(); // refrescar la lista
+  }
+  
   
 const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
   const grouped: Record<string, TeacherSubject[]> = {};
 
   teacherSubjects.forEach((schedule) => {
     const key = `${schedule.subject?.curso} ${schedule.subject?.division}`;
+
     if (key) {
       if (!grouped[key]) {
         grouped[key] = [];
@@ -183,6 +232,35 @@ const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
 
   return sortedGrouped;
 };
+async function deleteTeacher(teacherId: string) {
+
+  if (!confirm('¿Estás seguro de que querés eliminar al profesor y todos sus horarios?')) return;
+
+  // Eliminar primero los registros relacionados en teacher_subjects
+  const { error: deleteSubjectsError } = await supabase
+    .from('teacher_subjects')
+    .delete()
+    .eq('teacher_id', teacherId);
+
+  if (deleteSubjectsError) {
+    console.error('Error eliminando materias del profesor:', deleteSubjectsError);
+    return;
+  }
+
+  // Luego eliminar el profesor
+  const { error: deleteTeacherError } = await supabase
+    .from('teachers')
+    .delete()
+    .eq('id', teacherId);
+
+  if (deleteTeacherError) {
+    console.error('Error eliminando profesor:', deleteTeacherError);
+    return;
+  }
+
+  // Recargar la lista
+  await loadTeachers();
+}
 
 
 
@@ -215,47 +293,64 @@ const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
     Exportar PDF
   </button>
 </div>
+<button
+    onClick={cleanDuplicateSchedules}
+    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
+  >
+    <Trash size={20} />
+    Eliminar Duplicados
+  </button>
 
           </div>
 
           <div id="teacher-schedule" className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profesor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materias y Horarios</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {teachers.map((teacher) => (
-                  <tr key={teacher.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {teacher.apellido}, {teacher.nombre}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-4">
-                        {groupByCourseAndDivision(teacher.teacher_subjects).map(({ group, schedules }) => (
-                          <div key={group} className="space-y-2">
-                            <div className="font-semibold text-gray-800">{group}</div>
-                            {schedules.map((schedule) => (
-                              <div key={schedule.id} className="flex items-center gap-2 text-sm text-gray-900">
-                                <Clock size={16} className="text-gray-500" />
-                                <span>
-                                  {schedule.subject?.nombre} - {schedule.dia} {schedule.hora_inicio} - {schedule.hora_fin}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+  <table className="min-w-full divide-y divide-gray-200">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profesor</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materias y Horarios</th>
+        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+      {teachers.map((teacher) => (
+        <tr key={teacher.id}>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="text-sm font-medium text-gray-900">
+              {teacher.apellido}, {teacher.nombre}
+            </div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="space-y-4">
+              {groupByCourseAndDivision(teacher.teacher_subjects).map(({ group, schedules }) => (
+                <div key={group} className="space-y-2">
+                  <div className="font-semibold text-gray-800">{group}</div>
+                  {schedules.map((schedule) => (
+                    <div key={schedule.id} className="flex items-center gap-2 text-sm text-gray-900">
+                      <Clock size={16} className="text-gray-500" />
+                      <span>
+                        {schedule.subject?.nombre} - {schedule.dia} {schedule.hora_inicio} - {schedule.hora_fin}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </td>
+          <td className="px-6 py-4 text-right">
+            <button
+              onClick={() => deleteTeacher(teacher.id)}
+              className="text-red-600 hover:text-red-800 font-semibold text-sm"
+            >
+              Eliminar
+            </button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
         </div>
       </div>
     </div>
