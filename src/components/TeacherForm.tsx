@@ -99,13 +99,19 @@ export function TeacherForm() {
   const loadSubjectsForCourse = async (cursoCompleto: string) => {
     const [curso, division] = cursoCompleto.split(' ');
     const { data, error } = await supabase.from('subjects').select('id, nombre').eq('curso', curso).eq('division', division);
+    
     if (error) {
       console.error('Error loading subjects:', error);
       return [];
     }
+    
+    console.log(`Materias cargadas para ${cursoCompleto}:`, data);  // Log de depuración
+  
     setSubjectsByCourse(prev => ({ ...prev, [cursoCompleto]: data || [] }));
     return data || [];
   };
+  
+  
   
 
   const handleSubmit = async (e: React.FormEvent) => {
