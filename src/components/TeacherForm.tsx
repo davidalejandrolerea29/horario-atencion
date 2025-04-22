@@ -1,5 +1,7 @@
+// Aquí está tu componente ajustado con loaders para guardar y al cambiar de curso
+
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle, Text } from 'lucide-react';
 import { CURSOS_DIVISIONES, DIAS } from '../types';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +25,7 @@ interface Subject {
 export function TeacherForm() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ nombre: '', apellido: '' });
+ 
   const [schedules, setSchedules] = useState<SubjectSchedule[]>([{
     curso: CURSOS_DIVISIONES[0],
     materia: '',
@@ -30,180 +33,187 @@ export function TeacherForm() {
     horaInicio: '08:00',
     horaFin: '09:00',
   }]);
-
   const [subjectsByCourse, setSubjectsByCourse] = useState<Record<string, Subject[]>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingCoursesIndex, setLoadingCoursesIndex] = useState<number | null>(null);
+  const [loadingCourses, setLoadingCourses] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const addSchedule = async () => {
-    const newCurso = CURSOS_DIVISIONES[0]; // Curso por defecto
+    const newCurso = CURSOS_DIVISIONES[0];
     let firstMateria = '';
-  
-    // Cargar materias para el curso por defecto si no están en el estado
+
     if (!subjectsByCourse[newCurso]) {
       const subjects = await loadSubjectsForCourse(newCurso);
       if (subjects.length > 0) {
-        firstMateria = subjects[0].id; // Asignar la primera materia disponible
+        firstMateria = subjects[0].id;
       }
     } else {
       firstMateria = subjectsByCourse[newCurso][0]?.id || '';
     }
-  
-    setSchedules([
-      ...schedules,
-      {
-        curso: newCurso,
-        materia: firstMateria,
-        dia: DIAS[0],
-        horaInicio: '08:00',
-        horaFin: '09:00',
-      },
-    ]);
+
+    setSchedules([...schedules, {
+      curso: newCurso,
+      materia: firstMateria,
+      dia: DIAS[0],
+      horaInicio: '08:00',
+      horaFin: '09:00'
+    }]);
   };
-
-  useEffect(() => {
-    schedules.forEach((schedule, index) => {
-      if (!subjectsByCourse[schedule.curso]) {
-        loadSubjectsForCourse(schedule.curso).then((subjects) => {
-          if (subjects.length > 0) {
-            // Asigna el primer ID de materia si es que no se ha asignado uno ya
-            if (!schedule.materia) {
-              const firstSubject = subjects[0];
-              updateSchedule(index, 'materia', firstSubject.id); // Aquí actualizas el ID de la materia
-            }
-          }
-        });
-      }
-    });
-  }, [schedules, subjectsByCourse]);
-
   const removeSchedule = (index: number) => {
     setSchedules(schedules.filter((_, i) => i !== index));
   };
-
-  const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
-    const newSchedules = [...schedules];
-    newSchedules[index] = { ...newSchedules[index], [field]: value };
-
-    // Si cambia la materia a "Educación Física", asegurarse de agregar el campo de género
-    if (field === 'materia') {
-      const subjectName = subjectsByCourse[newSchedules[index].curso]?.find(sub => sub.id === value)?.nombre;
-      if (subjectName === 'Educación Física') {
-        newSchedules[index].genero = 'Varones'; // Valor por defecto
-      } else {
-        delete newSchedules[index].genero;
-      }
-    }
-
-    setSchedules(newSchedules);
-  };
-  useEffect(() => {
-    schedules.forEach((schedule, index) => {
-      if (!subjectsByCourse[schedule.curso]) {
-        loadSubjectsForCourse(schedule.curso).then((subjects) => {
-          if (subjects.length > 0 && !schedule.materia) {
-            updateSchedule(index, 'materia', subjects[0].id);
-          }
-        });
-      }
-    });
-  }, [schedules, subjectsByCourse]);
   const loadSubjectsForCourse = async (cursoCompleto: string) => {
+    setLoadingCourses(cursoCompleto);  // Esta línea está bien para mostrar el mensaje general de "Cargando materias"
+    setLoadingCoursesIndex(schedules.findIndex(schedule => schedule.curso === cursoCompleto)); // Asegúrate de que el índice sea el correcto
+    
     const [curso, division] = cursoCompleto.split(' ');
     const { data, error } = await supabase.from('subjects').select('id, nombre').eq('curso', curso).eq('division', division);
+  
     if (error) {
       console.error('Error loading subjects:', error);
+      setLoadingCourses(null);  // Resetea el mensaje de carga en caso de error
+      setLoadingCoursesIndex(null);  // Asegura que el índice se restablezca también
       return [];
     }
+  
     setSubjectsByCourse(prev => ({ ...prev, [cursoCompleto]: data || [] }));
+    
+    // Aquí, ya puedes asegurarte de que el loader se oculta después de la carga
+    setLoadingCourses(null);
+    setLoadingCoursesIndex(null);
     return data || [];
   };
+  
+  
+  const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
+    const updated = [...schedules];
+    updated[index] = { ...updated[index], [field]: value };
+  
+    let subjects: Subject[] | undefined;
+  
+    if (field === 'curso') {
+      setLoadingCoursesIndex(index);  // Asegúrate de que el índice se esté estableciendo correctamente
+      
+      if (subjectsByCourse[value]) {
+        subjects = subjectsByCourse[value];
+      } else {
+        subjects = await loadSubjectsForCourse(value);
+      }
+  
+      const firstMateria = subjects[0]?.id || '';
+      updated[index].materia = firstMateria;
+  
+      const subjectName = subjects[0]?.nombre;
+      if (subjectName === 'Educación Física') {
+        updated[index].genero = 'Varones';
+      } else {
+        delete updated[index].genero;
+      }
+    }
+  
+    if (field === 'materia') {
+      const currentCurso = updated[index].curso;
+      const subjects = subjectsByCourse[currentCurso] || [];
+      const subjectName = subjects.find(sub => sub.id === value)?.nombre;
+      if (subjectName === 'Educación Física') {
+        updated[index].genero = 'Varones';
+      } else {
+        delete updated[index].genero;
+      }
+  
+      setLoadingCoursesIndex(null);  // Aquí se debería resetear después de cambiar la materia
+    }
+  
+    setSchedules(updated);
+  };
+  
+  
   
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
-    // Validar que todos los horarios tengan un subject_id válido
+    setIsSaving(true);
+
     for (let i = 0; i < schedules.length; i++) {
       if (!schedules[i].materia || schedules[i].materia.trim() === '') {
         console.error('El campo "Materia" no puede estar vacío para el horario:', schedules[i]);
+        setIsSaving(false);
         return;
       }
     }
-  
-    // Guardar el profesor y obtener su ID
+
     const { data: teacherData, error: teacherError } = await supabase
       .from('teachers')
       .insert({ nombre: formData.nombre, apellido: formData.apellido })
       .select()
       .single();
-  
+
     if (teacherError || !teacherData || !teacherData.id) {
       console.error('Error al guardar el profesor:', teacherError);
+      setIsSaving(false);
       return;
     }
-  
-    // Usar el ID del profesor para asociarlo con los horarios
+
     const teacherSubjects = schedules.map(schedule => {
-      console.log('Materia:', schedule.materia); // Verifica el valor del subject_id
       const subjectName = subjectsByCourse[schedule.curso]?.find(sub => sub.id === schedule.materia)?.nombre;
-      
       return {
         teacher_id: teacherData.id,
         subject_id: schedule.materia,
         dia: schedule.dia,
         hora_inicio: schedule.horaInicio,
         hora_fin: schedule.horaFin,
-        ...(subjectName === 'Educación Física' ? { genero: schedule.genero } : {}), // Solo agrega 'genero' si es Educación Física
+        ...(subjectName === 'Educación Física' ? { genero: schedule.genero } : {}),
       };
     });
-    
-  
-    // Asegúrate de que el subject_id es un UUID antes de enviar los datos
-    teacherSubjects.forEach(subject => {
+
+    for (const subject of teacherSubjects) {
       if (!isValidUUID(subject.subject_id)) {
         console.error('El subject_id no es un UUID válido:', subject.subject_id);
+        setIsSaving(false);
         return;
       }
-    });
+    }
+
     if (!validateMateria()) {
+      setIsSaving(false);
       return;
     }
-    
-    // Insertar los horarios en la tabla teacher_subjects
+
     const { error: schedulesError } = await supabase.from('teacher_subjects').insert(teacherSubjects);
+    setIsSaving(false);
+
     if (schedulesError) {
       console.error('Error al guardar los horarios:', schedulesError);
       return;
     }
-    setIsModalOpen(true);
 
+    setIsModalOpen(true);
   };
-  
-  // Función para verificar si una cadena es un UUID válido
-  function isValidUUID(str: string) {
+
+  const isValidUUID = (str: string) => {
     const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     return regex.test(str);
-  }
-  
-  
-  // Asegúrate de que todos los campos 'materia' sean válidos antes de enviar el formulario
-const validateMateria = () => {
-  for (const schedule of schedules) {
-    if (!schedule.materia || schedule.materia.trim() === '') {
-      console.error('Falta el valor de materia en uno de los horarios');
-      return false;
-    }
-  }
-  return true;
-};
+  };
 
-  
-  
+  const validateMateria = () => {
+    for (const schedule of schedules) {
+      if (!schedule.materia || schedule.materia.trim() === '') {
+        console.error('Falta el valor de materia en uno de los horarios');
+        return false;
+      }
+    }
+    return true;
+  };
 
   return (
-   
-      <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+      {isSaving && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="text-white text-lg">Guardando horario...</div>
+        </div>
+      )}
         <div className="max-w-4xl mx-auto">
           {successMessage && (
             <div className="flex items-center p-4 mb-4 text-green-700 bg-green-100 rounded-lg">
@@ -283,6 +293,10 @@ const validateMateria = () => {
                         <option key={curso} value={curso}>{curso}</option>
                       ))}
                     </select>
+                    {loadingCoursesIndex === index && (
+  <Text>Cargando materias...</Text> // Muestra el mensaje solo si estamos cargando las materias para este índice
+)}
+
                   </div>
 
                   <div>
@@ -366,13 +380,7 @@ const validateMateria = () => {
           </div>
 
           <div className="flex gap-4 justify-end mt-8">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
-              Cancelar
-            </button>
+           
             <button
               type="submit"
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
