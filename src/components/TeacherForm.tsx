@@ -1,5 +1,7 @@
 // Aquí está tu componente ajustado con loaders para guardar y al cambiar de curso
 
+// Aquí está tu componente ajustado con loaders para guardar y al cambiar de curso
+
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, Trash2, CheckCircle, Text } from 'lucide-react';
 import { CURSOS_DIVISIONES, DIAS } from '../types';
