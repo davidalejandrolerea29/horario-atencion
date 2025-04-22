@@ -50,16 +50,17 @@ export function TeacherForm() {
   
 
   useEffect(() => {
-    // Iterar sobre los horarios solo una vez cuando cambian
     schedules.forEach((schedule, index) => {
       if (!schedule.materia && subjectsByCourse[schedule.curso]) {
         const availableSubjects = subjectsByCourse[schedule.curso];
         if (availableSubjects.length > 0) {
-          updateSchedule(index, 'materia', availableSubjects[0].id); // Asigna la primera materia disponible
+          // Solo asigna la primera materia si no hay ninguna materia seleccionada
+          updateSchedule(index, 'materia', availableSubjects[0].id);
         }
       }
     });
   }, [schedules, subjectsByCourse]);
+  
   
 
   const removeSchedule = (index: number) => {
@@ -69,7 +70,7 @@ export function TeacherForm() {
   const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
     const newSchedules = [...schedules];
     newSchedules[index] = { ...newSchedules[index], [field]: value };
-
+  
     // Si cambia la materia a "Educación Física", asegurarse de agregar el campo de género
     if (field === 'materia') {
       const subjectName = subjectsByCourse[newSchedules[index].curso]?.find(sub => sub.id === value)?.nombre;
@@ -79,9 +80,10 @@ export function TeacherForm() {
         delete newSchedules[index].genero;
       }
     }
-
+  
     setSchedules(newSchedules);
   };
+  
   useEffect(() => {
     schedules.forEach((schedule, index) => {
       if (!subjectsByCourse[schedule.curso]) {
@@ -124,14 +126,14 @@ export function TeacherForm() {
       const schedule = schedules[i];
       if (!schedule.curso || schedule.curso.trim() === '') {
         console.error('El campo "Curso" no puede estar vacío para el horario:', schedule);
-        return;  // Evitar enviar el formulario si el curso está vacío
+        return;
       }
       if (!schedule.materia || schedule.materia.trim() === '') {
         console.error('El campo "Materia" no puede estar vacío para el horario:', schedule);
-        return;  // Evitar enviar el formulario si la materia está vacía
+        return;
       }
   
-      console.log(`Horario validado: ${schedule.curso} - ${schedule.materia}`); // Log de depuración
+      console.log(`Horario validado: ${schedule.curso} - ${schedule.materia}`);
     }
     // Guardar el profesor y obtener su ID
     const { data: teacherData, error: teacherError } = await supabase
@@ -277,14 +279,17 @@ const validateMateria = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Curso y División</label>
                     <select
-                      value={schedule.curso}
-                      onChange={(e) => updateSchedule(index, 'curso', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      {CURSOS_DIVISIONES.map((curso) => (
-                        <option key={curso} value={curso}>{curso}</option>
-                      ))}
-                    </select>
+  value={schedule.materia}  // El valor de la materia debería ser el que se guarda en el estado
+  onChange={(e) => updateSchedule(index, 'materia', e.target.value)}  // Llama a la función de actualización
+  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+>
+  {subjectsByCourse[schedule.curso]?.map((subject) => (
+    <option key={subject.id} value={subject.id}>
+      {subject.nombre}
+    </option>
+  ))}
+</select>
+
                   </div>
 
                   <div>
