@@ -50,20 +50,17 @@ export function TeacherForm() {
   
 
   useEffect(() => {
+    // Iterar sobre los horarios solo una vez cuando cambian
     schedules.forEach((schedule, index) => {
-      if (!subjectsByCourse[schedule.curso]) {
-        loadSubjectsForCourse(schedule.curso).then((subjects) => {
-          if (subjects.length > 0) {
-            // Asigna el primer ID de materia si es que no se ha asignado uno ya
-            if (!schedule.materia) {
-              const firstSubject = subjects[0];
-              updateSchedule(index, 'materia', firstSubject.id); // Aquí actualizas el ID de la materia
-            }
-          }
-        });
+      if (!schedule.materia && subjectsByCourse[schedule.curso]) {
+        const availableSubjects = subjectsByCourse[schedule.curso];
+        if (availableSubjects.length > 0) {
+          updateSchedule(index, 'materia', availableSubjects[0].id); // Asigna la primera materia disponible
+        }
       }
     });
   }, [schedules, subjectsByCourse]);
+  
 
   const removeSchedule = (index: number) => {
     setSchedules(schedules.filter((_, i) => i !== index));
@@ -98,13 +95,17 @@ export function TeacherForm() {
   }, [schedules, subjectsByCourse]);
   const loadSubjectsForCourse = async (cursoCompleto: string) => {
     const [curso, division] = cursoCompleto.split(' ');
+  
+    // Log para verificar que estamos separando correctamente curso y división
+    console.log(`Cargando materias para el curso: ${curso}, división: ${division}`);
+  
     const { data, error } = await supabase.from('subjects').select('id, nombre').eq('curso', curso).eq('division', division);
-    
+  
     if (error) {
-      console.error('Error loading subjects:', error);
+      console.error('Error cargando materias:', error);
       return [];
     }
-    
+  
     console.log(`Materias cargadas para ${cursoCompleto}:`, data);  // Log de depuración
   
     setSubjectsByCourse(prev => ({ ...prev, [cursoCompleto]: data || [] }));
@@ -113,20 +114,24 @@ export function TeacherForm() {
   
   
   
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validar que todos los horarios tengan un curso y materia válidos
-  for (let i = 0; i < schedules.length; i++) {
-    if (!schedules[i].curso || schedules[i].curso.trim() === '') {
-      console.error('El campo "Curso" no puede estar vacío para el horario:', schedules[i]);
-      return;  // Evitar enviar el formulario si el curso está vacío
-    }
-    if (!schedules[i].materia || schedules[i].materia.trim() === '') {
-      console.error('El campo "Materia" no puede estar vacío para el horario:', schedules[i]);
-      return;  // Evitar enviar el formulario si la materia está vacía
-    }
+    // Validar que todos los horarios tengan un curso y materia válidos
+    for (let i = 0; i < schedules.length; i++) {
+      const schedule = schedules[i];
+      if (!schedule.curso || schedule.curso.trim() === '') {
+        console.error('El campo "Curso" no puede estar vacío para el horario:', schedule);
+        return;  // Evitar enviar el formulario si el curso está vacío
+      }
+      if (!schedule.materia || schedule.materia.trim() === '') {
+        console.error('El campo "Materia" no puede estar vacío para el horario:', schedule);
+        return;  // Evitar enviar el formulario si la materia está vacía
+      }
+  
+      console.log(`Horario validado: ${schedule.curso} - ${schedule.materia}`); // Log de depuración
     }
     // Guardar el profesor y obtener su ID
     const { data: teacherData, error: teacherError } = await supabase
