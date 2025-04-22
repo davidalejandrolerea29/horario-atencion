@@ -33,6 +33,7 @@ export function TeacherForm() {
 
   const [subjectsByCourse, setSubjectsByCourse] = useState<Record<string, Subject[]>>({});
   const [successMessage, setSuccessMessage] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const addSchedule = async () => {
     const newCurso = CURSOS_DIVISIONES[0]; // Curso por defecto
@@ -175,8 +176,7 @@ export function TeacherForm() {
       console.error('Error al guardar los horarios:', schedulesError);
       return;
     }
-    setSuccessMessage('Su horario ha sido registrado, Muchas gracias');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    setIsModalOpen(true);
 
   };
   
@@ -225,6 +225,24 @@ const validateMateria = () => {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
+            {isModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
+      <CheckCircle className="text-green-500 mx-auto mb-4" size={40} />
+      <h2 className="text-xl font-semibold mb-2">¡Horario registrado!</h2>
+      <p className="mb-4">Su horario ha sido registrado correctamente. Muchas gracias.</p>
+      <button
+        onClick={() => {
+          setIsModalOpen(false);
+          navigate('/'); // redirigir si querés
+        }}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Aceptar
+      </button>
+    </div>
+  </div>
+)}
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Apellido</label>
