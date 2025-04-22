@@ -36,30 +36,18 @@ export function TeacherForm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const addSchedule = async () => {
-    const newCurso = CURSOS_DIVISIONES[0]; // Curso por defecto
-    let firstMateria = '';
-  
-    // Cargar materias para el curso por defecto si no están en el estado
-    if (!subjectsByCourse[newCurso]) {
-      const subjects = await loadSubjectsForCourse(newCurso);
-      if (subjects.length > 0) {
-        firstMateria = subjects[0].id; // Asignar la primera materia disponible
-      }
-    } else {
-      firstMateria = subjectsByCourse[newCurso][0]?.id || '';
-    }
-  
     setSchedules([
       ...schedules,
       {
-        curso: newCurso,
-        materia: firstMateria,
-        dia: DIAS[0],
-        horaInicio: '08:00',
-        horaFin: '09:00',
+        curso: '',  // Curso vacío por defecto
+        materia: '',  // Materia vacía por defecto
+        dia: DIAS[0],  // Día por defecto (puedes cambiarlo si quieres)
+        horaInicio: '08:00',  // Hora de inicio por defecto
+        horaFin: '09:00',  // Hora de fin por defecto
       },
     ]);
   };
+  
 
   useEffect(() => {
     schedules.forEach((schedule, index) => {
@@ -121,16 +109,19 @@ export function TeacherForm() {
   
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-  
-    // Validar que todos los horarios tengan un subject_id válido
-    for (let i = 0; i < schedules.length; i++) {
-      if (!schedules[i].materia || schedules[i].materia.trim() === '') {
-        console.error('El campo "Materia" no puede estar vacío para el horario:', schedules[i]);
-        return;
-      }
+  e.preventDefault();
+
+  // Validar que todos los horarios tengan un curso y materia válidos
+  for (let i = 0; i < schedules.length; i++) {
+    if (!schedules[i].curso || schedules[i].curso.trim() === '') {
+      console.error('El campo "Curso" no puede estar vacío para el horario:', schedules[i]);
+      return;  // Evitar enviar el formulario si el curso está vacío
     }
-  
+    if (!schedules[i].materia || schedules[i].materia.trim() === '') {
+      console.error('El campo "Materia" no puede estar vacío para el horario:', schedules[i]);
+      return;  // Evitar enviar el formulario si la materia está vacía
+    }
+    }
     // Guardar el profesor y obtener su ID
     const { data: teacherData, error: teacherError } = await supabase
       .from('teachers')
