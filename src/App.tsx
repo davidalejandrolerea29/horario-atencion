@@ -4,6 +4,8 @@ import { TeacherForm } from './components/TeacherForm';
 import { Dashboard } from './components/Dashboard';
 import { SubjectList } from './components/SubjectList';
 import { SubjectForm } from './components/SubjectForm';
+import { PrefectList } from './components/PrefectList';
+import { PrefectForm } from './components/PrefectForm';
 
 function App() {
   return (
@@ -17,7 +19,8 @@ function App() {
 
         {/* Dashboard con los horarios */}
         <Route path="/dashboard" element={<Dashboard />} />
-
+        <Route path="/preceptores" element={<PrefectList />} />
+        <Route path="/preceptores/nuevo" element={<PrefectForm />} />
         {/* Gestión de materias */}
         <Route path="/materias" element={<SubjectList />} />
         <Route path="/materias/nueva" element={<SubjectForm />} />

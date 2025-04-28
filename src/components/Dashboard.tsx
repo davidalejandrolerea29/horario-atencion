@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Clock, Plus, BookOpen, Trash } from 'lucide-react';
+import { Download, Clock, Plus, BookOpen, Trash, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { ScheduleRow } from "./ScheduleRow";
@@ -17,12 +17,28 @@ interface TeacherWithSchedules extends Teacher {
 export function Dashboard() {
   const [teachers, setTeachers] = useState<TeacherWithSchedules[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [prefects, setPrefects] = useState<any[]>([]);
+const [selectedPrefectId, setSelectedPrefectId] = useState<string | null>(null);
+
 
 
   useEffect(() => {
     loadTeachers();
+    loadPrefects(); 
   }, []);
-
+  async function loadPrefects() {
+    const { data, error } = await supabase
+      .from('prefects')
+      .select('*')
+      .order('apellido', { ascending: true });
+  
+    if (error) {
+      console.error('Error loading prefects:', error);
+      return;
+    }
+  
+    setPrefects(data || []);
+  }
   async function loadTeachers() {
     // 1. Traer todos los profesores
     const { data: teachersData, error: teachersError } = await supabase
@@ -218,6 +234,99 @@ export function Dashboard() {
     await loadTeachers(); // refrescar la lista
   }
   
+  const exportPrefectScheduleToPDF = () => {
+    if (!selectedPrefectId) return;
+  
+    const prefect = prefects.find(p => p.id === selectedPrefectId);
+    if (!prefect) {
+      alert('Preceptor no encontrado.');
+      return;
+    }
+  
+    const cursoDivisionKey = `${prefect.curso} ${prefect.division}`;
+  
+    // Filtrar los profesores que tienen materias en el mismo curso/división que el preceptor
+    const teachersForPrefect = teachers.filter((teacher) =>
+      teacher.teacher_subjects.some((subject) =>
+        `${subject.subject?.curso} ${subject.subject?.division}` === cursoDivisionKey
+      )
+    );
+  
+    if (teachersForPrefect.length === 0) {
+      alert('No se encontraron horarios para el curso del preceptor.');
+      return;
+    }
+  
+    // Construir el contenido del PDF
+    const generateTable = () => {
+      let tableContent = `
+        <table style="width: 15cm; height: 11.8cm; border-collapse: collapse; margin: 5px; font-size: 10px;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="border: 1px solid #000; padding: 4px;">Profesor</th>
+              <th style="border: 1px solid #000; padding: 4px;">Materia</th>
+              <th style="border: 1px solid #000; padding: 4px;">Día</th>
+              <th style="border: 1px solid #000; padding: 4px;">Horario</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+  
+      teachersForPrefect.forEach((teacher) => {
+        const matchingSubjects = teacher.teacher_subjects.filter((subject) =>
+          `${subject.subject?.curso} ${subject.subject?.division}` === cursoDivisionKey
+        );
+  
+        matchingSubjects.forEach((schedule) => {
+          tableContent += `
+            <tr>
+              <td style="border: 1px solid #000; padding: 4px;">${teacher.apellido}, ${teacher.nombre}</td>
+              <td style="border: 1px solid #000; padding: 4px;">
+                ${schedule.subject?.nombre}
+                ${schedule.subject?.nombre === 'Educación Física' && schedule.genero ? `(${schedule.genero})` : ''}
+              </td>
+              <td style="border: 1px solid #000; padding: 4px;">${schedule.dia}</td>
+              <td style="border: 1px solid #000; padding: 4px;">${schedule.hora_inicio} - ${schedule.hora_fin}</td>
+            </tr>
+          `;
+        });
+      });
+  
+      tableContent += `
+          </tbody>
+        </table>
+      `;
+  
+      return tableContent;
+    };
+  
+    // El contenido final del PDF
+    let pdfContent = `
+      <div style="font-family: Arial, sans-serif; display: flex; flex-wrap: wrap; justify-content: space-around;">
+        <div style="text-align: center; width: 100%;">
+          <h2 style="font-size: 16px;">Horarios de Atención</h2>
+          <h3 style="font-size: 12px;">${prefect.apellido}, ${prefect.nombre} - Curso: ${prefect.curso}° División: ${prefect.division}</h3>
+        </div>
+  
+        <!-- Primera tabla -->
+        ${generateTable()}
+  
+        <!-- Segunda tabla -->
+       
+      </div>
+    `;
+  
+    const opt = {
+      margin: 5,
+      filename: `horarios-${prefect.apellido}-${prefect.curso}-${prefect.division}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+  
+    html2pdf().set(opt).from(pdfContent).save();
+  };
+  
   
 const groupByCourseAndDivision = (teacherSubjects: TeacherSubject[]) => {
   const grouped: Record<string, TeacherSubject[]> = {};
@@ -283,6 +392,13 @@ async function deleteTeacher(teacherId: string) {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">Horarios de Consulta</h2>
             <div className="flex flex-col sm:flex-row sm:gap-4 gap-2 sm:items-center w-full">
+            <Link
+                to="/preceptores"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                <Users size={20} />
+                Preceptores
+              </Link>
   <Link
     to="/materias"
     className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
@@ -297,6 +413,33 @@ async function deleteTeacher(teacherId: string) {
     <Plus size={20} />
     Nuevo Horario
   </Link>
+  <div className="flex flex-col sm:flex-row sm:gap-4 gap-2 sm:items-center w-full">
+  {/* Tu Link a Preceptores, Materias, etc. */}
+
+  <select
+    value={selectedPrefectId || ''}
+    onChange={(e) => setSelectedPrefectId(e.target.value || null)}
+    className="px-4 py-2 border rounded-md w-full sm:w-auto"
+  >
+    <option value="">Seleccionar Preceptor</option>
+    {prefects.map((prefect) => (
+      <option key={prefect.id} value={prefect.id}>
+        {prefect.apellido}, {prefect.nombre} ({prefect.curso}° {prefect.division})
+      </option>
+    ))}
+  </select>
+
+  {/* Botón para exportar por preceptor */}
+  <button
+    onClick={exportPrefectScheduleToPDF}
+    disabled={!selectedPrefectId}
+    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
+  >
+    <Download size={20} />
+    Exportar por Preceptor
+  </button>
+</div>
+
   <button
     onClick={exportToPDF}
     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
@@ -305,13 +448,7 @@ async function deleteTeacher(teacherId: string) {
     Exportar PDF
   </button>
 </div>
-<button
-    onClick={cleanDuplicateSchedules}
-    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 w-full sm:w-auto justify-center"
-  >
-    <Trash size={20} />
-    Eliminar Duplicados
-  </button>
+
 
           </div>
 
