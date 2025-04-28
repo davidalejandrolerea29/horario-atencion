@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Download, Clock, Plus, BookOpen, Trash } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
+import { ScheduleRow } from "./ScheduleRow";
+
+
 import { supabase } from '../lib/supabase';
 import { CURSOS_DIVISIONES, CursoDivision } from '../types'; // Importar desde tu archivo de tipos
 import type { Teacher, TeacherSubject } from '../types';
@@ -13,54 +16,63 @@ interface TeacherWithSchedules extends Teacher {
 
 export function Dashboard() {
   const [teachers, setTeachers] = useState<TeacherWithSchedules[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
 
   useEffect(() => {
     loadTeachers();
   }, []);
 
   async function loadTeachers() {
+    // 1. Traer todos los profesores
     const { data: teachersData, error: teachersError } = await supabase
       .from('teachers')
       .select('*')
       .order('created_at', { ascending: false });
-
+  
     if (teachersError) {
       console.error('Error loading teachers:', teachersError);
       return;
     }
-
-    const teachersWithSchedules = await Promise.all(
-      (teachersData || []).map(async (teacher) => {
-        const { data: schedulesData, error: schedulesError } = await supabase
-        .from('teacher_subjects')
-        .select(`
-          *,
-          subject:subject_id (
-            id,
-            nombre,
-            curso,
-            division,
-            order
-          ),
-          genero
-        `)
-        .eq('teacher_id', teacher.id)
-        .order('order', { foreignTable: 'subject', ascending: true }); // Ordenar por el campo 'order' de la tabla 'subjects'
-      // Ordenar por el campo 'order' de la tabla 'subjects'
-      
-      
-
-
-        return {
-          ...teacher,
-          teacher_subjects: schedulesData || [],
-        };
-      })
-    );
-
+  
+    // 2. Traer todos los horarios de todos los profesores
+    const { data: schedulesData, error: schedulesError } = await supabase
+      .from('teacher_subjects')
+      .select(`
+        *,
+        subject:subject_id (
+          id,
+          nombre,
+          curso,
+          division,
+          order
+        ),
+        genero
+      `);
+  
+    if (schedulesError) {
+      console.error('Error loading schedules:', schedulesError);
+      return;
+    }
+  
+    // 3. Agrupar los horarios por profesor
+    const schedulesByTeacherId: Record<string, TeacherSubject[]> = {};
+    (schedulesData || []).forEach((schedule) => {
+      if (!schedulesByTeacherId[schedule.teacher_id]) {
+        schedulesByTeacherId[schedule.teacher_id] = [];
+      }
+      schedulesByTeacherId[schedule.teacher_id].push(schedule);
+    });
+  
+    // 4. Asociar a cada profesor sus horarios
+    const teachersWithSchedules = (teachersData || []).map((teacher) => ({
+      ...teacher,
+      teacher_subjects: schedulesByTeacherId[teacher.id] || [],
+    }));
+  
     setTeachers(teachersWithSchedules);
   }
-
+  
   // Exportación a PDF
   const exportToPDF = () => {
     // Agrupar profesores por curso y división
@@ -304,6 +316,14 @@ async function deleteTeacher(teacherId: string) {
           </div>
 
           <div id="teacher-schedule" className="overflow-x-auto">
+          <input
+  type="text"
+  placeholder="Buscar profesor..."
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  className="mb-4 px-4 py-2 border rounded-md w-full sm:w-1/2"
+/>
+
   <table className="min-w-full divide-y divide-gray-200">
     <thead className="bg-gray-50">
       <tr>
@@ -313,41 +333,44 @@ async function deleteTeacher(teacherId: string) {
       </tr>
     </thead>
     <tbody className="bg-white divide-y divide-gray-200">
-      {teachers.map((teacher) => (
-        <tr key={teacher.id}>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div className="text-sm font-medium text-gray-900">
-              {teacher.apellido}, {teacher.nombre}
-            </div>
-          </td>
-          <td className="px-6 py-4">
-            <div className="space-y-4">
-              {groupByCourseAndDivision(teacher.teacher_subjects).map(({ group, schedules }) => (
-                <div key={group} className="space-y-2">
-                  <div className="font-semibold text-gray-800">{group}</div>
-                  {schedules.map((schedule) => (
-                    <div key={schedule.id} className="flex items-center gap-2 text-sm text-gray-900">
-                      <Clock size={16} className="text-gray-500" />
-                      <span>
-                        {schedule.subject?.nombre} - {schedule.dia} {schedule.hora_inicio} - {schedule.hora_fin}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </td>
-          <td className="px-6 py-4 text-right">
-            <button
-              onClick={() => deleteTeacher(teacher.id)}
-              className="text-red-600 hover:text-red-800 font-semibold text-sm"
-            >
-              Eliminar
-            </button>
-          </td>
-        </tr>
-      ))}
-    </tbody>
+  {teachers
+    .filter((teacher) =>
+      `${teacher.apellido} ${teacher.nombre}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    )
+    .map((teacher) => (
+      <tr key={teacher.id}>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="text-sm font-medium text-gray-900">
+            {teacher.apellido}, {teacher.nombre}
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <div className="space-y-4">
+            {groupByCourseAndDivision(teacher.teacher_subjects).map(({ group, schedules }) => (
+              <div key={group} className="space-y-2">
+                <div className="font-semibold text-gray-800">{group}</div>
+                {schedules.map((schedule) => (
+                  <ScheduleRow key={schedule.id} schedule={schedule} reload={loadTeachers} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </td>
+        <td className="px-6 py-4 text-right">
+          <button
+            onClick={() => deleteTeacher(teacher.id)}
+            className="text-red-600 hover:text-red-800 font-semibold text-sm"
+          >
+            Eliminar
+          </button>
+        </td>
+      </tr>
+    ))}
+</tbody>
+
+
   </table>
 </div>
 
