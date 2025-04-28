@@ -12,7 +12,14 @@ export interface Subject {
   division: string;
   order: number;
 }
-
+export interface Prefect {
+  id: string;
+  nombre: string;
+  apellido: string;
+  curso: string;
+  division: string;
+  created_at?: string;
+}
 export interface TeacherSubject {
   id: string;
   teacher_id: string;
