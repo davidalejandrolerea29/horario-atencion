@@ -1,189 +1,186 @@
-// Aquí está tu componente ajustado con loaders para guardar y al cambiar de curso
-
-// Aquí está tu componente ajustado con loaders para guardar y al cambiar de curso
-
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, CheckCircle, Text } from 'lucide-react';
-import { CURSOS_DIVISIONES, DIAS } from '../types';
+import { Save, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { DIAS } from '../types';
+import type { Docente, Curso, Materia } from '../types';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
-interface SubjectSchedule {
-  curso: string;
-  materia: string;
+interface ScheduleEntry {
+  curso_id: number | '';
+  materia_id: number | '';
   dia: string;
   horaInicio: string;
   horaFin: string;
   genero?: string;
 }
 
-interface Subject {
-  id: string;
-  nombre: string;
-  curso: string;
-  division: string;
-}
-
 export function TeacherForm() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ nombre: '', apellido: '' });
- 
-  const [schedules, setSchedules] = useState<SubjectSchedule[]>([{
-    curso: CURSOS_DIVISIONES[0],
-    materia: '',
+  const [docenteNombre, setDocenteNombre] = useState('');
+  const [selectedDocenteId, setSelectedDocenteId] = useState<number | null>(null);
+  const [isNewDocente, setIsNewDocente] = useState(true);
+
+  const [docentes, setDocentes] = useState<Docente[]>([]);
+  const [cursos, setCursos] = useState<Curso[]>([]);
+  const [materiasByCurso, setMateriasByCurso] = useState<Record<number, Materia[]>>({});
+
+  const [schedules, setSchedules] = useState<ScheduleEntry[]>([{
+    curso_id: '',
+    materia_id: '',
     dia: DIAS[0],
     horaInicio: '08:00',
     horaFin: '09:00',
   }]);
-  const [subjectsByCourse, setSubjectsByCourse] = useState<Record<string, Subject[]>>({});
-  const [successMessage, setSuccessMessage] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loadingCoursesIndex, setLoadingCoursesIndex] = useState<number | null>(null);
-  const [loadingCourses, setLoadingCourses] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const addSchedule = async () => {
-    const newCurso = CURSOS_DIVISIONES[0];
-    let firstMateria = '';
+  useEffect(() => {
+    loadDocentes();
+    loadCursos();
+  }, []);
 
-    if (!subjectsByCourse[newCurso]) {
-      const subjects = await loadSubjectsForCourse(newCurso);
-      if (subjects.length > 0) {
-        firstMateria = subjects[0].id;
-      }
-    } else {
-      firstMateria = subjectsByCourse[newCurso][0]?.id || '';
+  async function loadDocentes() {
+    const { data, error } = await supabase
+      .from('docentes')
+      .select('*')
+      .order('nombre', { ascending: true });
+    if (!error && data) setDocentes(data);
+  }
+
+  async function loadCursos() {
+    const { data, error } = await supabase
+      .from('cursos')
+      .select('*')
+      .order('nombre', { ascending: true });
+    if (!error && data) setCursos(data);
+  }
+
+  async function loadMateriasForCurso(cursoId: number) {
+    if (materiasByCurso[cursoId]) return materiasByCurso[cursoId];
+
+    const { data, error } = await supabase
+      .from('curso_materia')
+      .select('materia_id, materias:materia_id(id, nombre)')
+      .eq('curso_id', cursoId);
+
+    if (error) {
+      console.error('Error loading materias:', error);
+      return [];
     }
 
+    const materias: Materia[] = (data || []).map((item: any) => ({
+      id: item.materias.id,
+      nombre: item.materias.nombre,
+    }));
+
+    setMateriasByCurso(prev => ({ ...prev, [cursoId]: materias }));
+    return materias;
+  }
+
+  const addSchedule = () => {
     setSchedules([...schedules, {
-      curso: newCurso,
-      materia: firstMateria,
+      curso_id: '',
+      materia_id: '',
       dia: DIAS[0],
       horaInicio: '08:00',
-      horaFin: '09:00'
+      horaFin: '09:00',
     }]);
   };
+
   const removeSchedule = (index: number) => {
     setSchedules(schedules.filter((_, i) => i !== index));
   };
-  const loadSubjectsForCourse = async (cursoCompleto: string) => {
-    setLoadingCourses(cursoCompleto);  // Esta línea está bien para mostrar el mensaje general de "Cargando materias"
-    setLoadingCoursesIndex(schedules.findIndex(schedule => schedule.curso === cursoCompleto)); // Asegúrate de que el índice sea el correcto
-    
-    const [curso, division] = cursoCompleto.split(' ');
-    const { data, error } = await supabase.from('subjects').select('id, nombre').eq('curso', curso).eq('division', division);
-  
-    if (error) {
-      console.error('Error loading subjects:', error);
-      setLoadingCourses(null);  // Resetea el mensaje de carga en caso de error
-      setLoadingCoursesIndex(null);  // Asegura que el índice se restablezca también
-      return [];
-    }
-  
-    setSubjectsByCourse(prev => ({ ...prev, [cursoCompleto]: data || [] }));
-    
-    // Aquí, ya puedes asegurarte de que el loader se oculta después de la carga
-    setLoadingCourses(null);
-    setLoadingCoursesIndex(null);
-    return data || [];
-  };
-  
-  
-  const updateSchedule = async (index: number, field: keyof SubjectSchedule, value: string) => {
+
+  const updateSchedule = async (index: number, field: keyof ScheduleEntry, value: string | number) => {
     const updated = [...schedules];
     updated[index] = { ...updated[index], [field]: value };
-  
-    let subjects: Subject[] | undefined;
-  
-    if (field === 'curso') {
-      setLoadingCoursesIndex(index);  // Asegúrate de que el índice se esté estableciendo correctamente
-      
-      if (subjectsByCourse[value]) {
-        subjects = subjectsByCourse[value];
-      } else {
-        subjects = await loadSubjectsForCourse(value);
-      }
-  
-      const firstMateria = subjects[0]?.id || '';
-      updated[index].materia = firstMateria;
-  
-      const subjectName = subjects[0]?.nombre;
-      if (subjectName === 'Educación Física') {
+
+    if (field === 'curso_id' && typeof value === 'number') {
+      const materias = await loadMateriasForCurso(value);
+      updated[index].materia_id = materias.length > 0 ? materias[0].id : '';
+
+      // Check if first materia is Educación Física
+      const materiaNombre = materias[0]?.nombre;
+      if (materiaNombre === 'Educación Física') {
         updated[index].genero = 'Varones';
       } else {
         delete updated[index].genero;
       }
     }
-  
-    if (field === 'materia') {
-      const currentCurso = updated[index].curso;
-      const subjects = subjectsByCourse[currentCurso] || [];
-      const subjectName = subjects.find(sub => sub.id === value)?.nombre;
-      if (subjectName === 'Educación Física') {
-        updated[index].genero = 'Varones';
-      } else {
-        delete updated[index].genero;
+
+    if (field === 'materia_id' && typeof value === 'number') {
+      const cursoId = updated[index].curso_id;
+      if (cursoId !== '') {
+        const materias = materiasByCurso[cursoId] || [];
+        const materiaNombre = materias.find(m => m.id === value)?.nombre;
+        if (materiaNombre === 'Educación Física') {
+          updated[index].genero = 'Varones';
+        } else {
+          delete updated[index].genero;
+        }
       }
-  
-      setLoadingCoursesIndex(null);  // Aquí se debería resetear después de cambiar la materia
     }
-  
+
     setSchedules(updated);
   };
-  
-  
-  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    for (let i = 0; i < schedules.length; i++) {
-      if (!schedules[i].materia || schedules[i].materia.trim() === '') {
-        console.error('El campo "Materia" no puede estar vacío para el horario:', schedules[i]);
+    // Validate schedules
+    for (const schedule of schedules) {
+      if (schedule.curso_id === '' || schedule.materia_id === '') {
+        alert('Debe seleccionar un curso y una materia para cada horario.');
         setIsSaving(false);
         return;
       }
     }
 
-    const { data: teacherData, error: teacherError } = await supabase
-      .from('teachers')
-      .insert({ nombre: formData.nombre, apellido: formData.apellido })
-      .select()
-      .single();
+    let docenteId = selectedDocenteId;
 
-    if (teacherError || !teacherData || !teacherData.id) {
-      console.error('Error al guardar el profesor:', teacherError);
-      setIsSaving(false);
-      return;
-    }
-
-    const teacherSubjects = schedules.map(schedule => {
-      const subjectName = subjectsByCourse[schedule.curso]?.find(sub => sub.id === schedule.materia)?.nombre;
-      return {
-        teacher_id: teacherData.id,
-        subject_id: schedule.materia,
-        dia: schedule.dia,
-        hora_inicio: schedule.horaInicio,
-        hora_fin: schedule.horaFin,
-        ...(subjectName === 'Educación Física' ? { genero: schedule.genero } : {}),
-      };
-    });
-
-    for (const subject of teacherSubjects) {
-      if (!isValidUUID(subject.subject_id)) {
-        console.error('El subject_id no es un UUID válido:', subject.subject_id);
+    if (isNewDocente) {
+      if (!docenteNombre.trim()) {
+        alert('Debe ingresar el nombre del docente.');
         setIsSaving(false);
         return;
       }
+
+      const { data: docenteData, error: docenteError } = await supabase
+        .from('docentes')
+        .insert({ nombre: docenteNombre.trim() })
+        .select()
+        .single();
+
+      if (docenteError || !docenteData) {
+        console.error('Error al guardar el docente:', docenteError);
+        setIsSaving(false);
+        return;
+      }
+      docenteId = docenteData.id;
     }
 
-    if (!validateMateria()) {
+    if (!docenteId) {
+      alert('Debe seleccionar o crear un docente.');
       setIsSaving(false);
       return;
     }
 
-    const { error: schedulesError } = await supabase.from('teacher_subjects').insert(teacherSubjects);
+    const horarios = schedules.map(schedule => ({
+      docente_id: docenteId,
+      curso_id: schedule.curso_id as number,
+      materia_id: schedule.materia_id as number,
+      dia: schedule.dia,
+      hora_inicio: schedule.horaInicio,
+      hora_fin: schedule.horaFin,
+      genero: schedule.genero || null,
+    }));
+
+    const { error: schedulesError } = await supabase
+      .from('horarios_docente')
+      .insert(horarios);
+
     setIsSaving(false);
 
     if (schedulesError) {
@@ -194,134 +191,158 @@ export function TeacherForm() {
     setIsModalOpen(true);
   };
 
-  const isValidUUID = (str: string) => {
-    const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-    return regex.test(str);
-  };
-
-  const validateMateria = () => {
-    for (const schedule of schedules) {
-      if (!schedule.materia || schedule.materia.trim() === '') {
-        console.error('Falta el valor de materia en uno de los horarios');
-        return false;
-      }
-    }
-    return true;
-  };
-
   return (
-    <div className="relative min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen bg-neutral-50 py-8 px-4 sm:px-6 lg:px-8 font-sans text-neutral-800">
       {isSaving && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="text-white text-lg">Guardando horario...</div>
+        <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity">
+          <div className="bg-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
+            <span className="font-medium">Guardando horario...</span>
+          </div>
         </div>
       )}
-        <div className="max-w-4xl mx-auto">
-          {successMessage && (
-            <div className="flex items-center p-4 mb-4 text-green-700 bg-green-100 rounded-lg">
-              <CheckCircle className="w-5 h-5 mr-2" />
-              {successMessage}
-            </div>
-          )}
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Registro de Horarios de Consulta</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Nombre</label>
-              <input
-                type="text"
-                required
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            {isModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
-      <CheckCircle className="text-green-500 mx-auto mb-4" size={40} />
-      <h2 className="text-xl font-semibold mb-2">¡Horario registrado!</h2>
-      <p className="mb-4">Su horario ha sido registrado correctamente. Muchas gracias.</p>
-      <button
-        onClick={() => {
-          setIsModalOpen(false);
-          navigate('/'); // redirigir si querés
-        }}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Aceptar
-      </button>
-    </div>
-  </div>
-)}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Apellido</label>
-              <input
-                type="text"
-                required
-                value={formData.apellido}
-                onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header Options */}
+        <div className="flex justify-between items-center">
+          <button onClick={() => navigate(-1)} className="text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+            ← Volver
+          </button>
+        </div>
+
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
+            <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="text-green-600" size={32} />
+              </div>
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mb-2">¡Horario registrado!</h2>
+              <p className="text-neutral-500 mb-8">El horario ha sido guardado correctamente.</p>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  navigate('/');
+                }}
+                className="w-full px-5 py-3 bg-neutral-900 text-white rounded-xl font-medium hover:bg-neutral-800 transition-all shadow-sm"
+              >
+                Volver al Dashboard
+              </button>
             </div>
           </div>
+        )}
 
+        <form onSubmit={handleSubmit} className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-neutral-100">
+          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mb-8">Registro de Horarios</h2>
+
+          {/* Docente selection */}
+          <div className="p-6 bg-neutral-50/50 border border-neutral-100/80 rounded-2xl mb-8 space-y-6">
+            <div className="flex flex-wrap items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="radio"
+                  checked={isNewDocente}
+                  onChange={() => { setIsNewDocente(true); setSelectedDocenteId(null); }}
+                  className="w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900 focus:ring-offset-1"
+                />
+                <span className="text-sm font-medium text-neutral-700 group-hover:text-neutral-900 transition-colors">Nuevo Docente</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="radio"
+                  checked={!isNewDocente}
+                  onChange={() => setIsNewDocente(false)}
+                  className="w-4 h-4 text-neutral-900 border-neutral-300 focus:ring-neutral-900 focus:ring-offset-1"
+                />
+                <span className="text-sm font-medium text-neutral-700 group-hover:text-neutral-900 transition-colors">Docente Existente</span>
+              </label>
+            </div>
+
+            {isNewDocente ? (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={docenteNombre}
+                  onChange={(e) => setDocenteNombre(e.target.value)}
+                  placeholder="Ej: García, Juan Carlos"
+                  className="block w-full px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-shadow"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1.5">Seleccionar Docente</label>
+                <select
+                  required
+                  value={selectedDocenteId || ''}
+                  onChange={(e) => setSelectedDocenteId(Number(e.target.value))}
+                  className="block w-full px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-shadow"
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {docentes.map((d) => (
+                    <option key={d.id} value={d.id}>{d.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Schedules */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Horarios de Consulta</h3>
+            <div className="flex justify-between items-center pb-2 border-b border-neutral-100">
+              <h3 className="text-lg font-medium text-neutral-900">Bloques de Horario</h3>
               <button
                 type="button"
                 onClick={addSchedule}
-                className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 text-neutral-700 text-sm font-medium rounded-lg hover:bg-neutral-200 transition-colors"
               >
                 <Plus size={16} />
-                Agregar Horario
+                Agregar Bloque
               </button>
             </div>
 
             {schedules.map((schedule, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div key={index} className="p-6 border border-neutral-200 rounded-2xl bg-white shadow-sm relative group">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Curso */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Curso y División</label>
+                    <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Curso</label>
                     <select
-                      value={schedule.curso}
-                      onChange={(e) => updateSchedule(index, 'curso', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      value={schedule.curso_id}
+                      onChange={(e) => updateSchedule(index, 'curso_id', Number(e.target.value))}
+                      className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
                     >
-                      {CURSOS_DIVISIONES.map((curso) => (
-                        <option key={curso} value={curso}>{curso}</option>
+                      <option value="">Seleccionar Curso</option>
+                      {cursos.map((curso) => (
+                        <option key={curso.id} value={curso.id}>{curso.nombre}</option>
                       ))}
                     </select>
-                    {loadingCoursesIndex === index && (
-  <Text>Cargando materias...</Text> // Muestra el mensaje solo si estamos cargando las materias para este índice
-)}
-
                   </div>
 
+                  {/* Materia */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Materia</label>
+                    <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Materia</label>
                     <select
-  value={schedule.materia}
-  onChange={(e) => updateSchedule(index, 'materia', e.target.value)}
-  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
->
-  {subjectsByCourse[schedule.curso]?.map((subject) => (
-    <option key={subject.id} value={subject.id}>
-      {subject.nombre}
-    </option>
-  ))}
-</select>
+                      value={schedule.materia_id}
+                      onChange={(e) => updateSchedule(index, 'materia_id', Number(e.target.value))}
+                      className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
+                    >
+                      <option value="">Seleccionar Materia</option>
+                      {schedule.curso_id !== '' && materiasByCurso[schedule.curso_id]?.map((materia) => (
+                        <option key={materia.id} value={materia.id}>{materia.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
 
-{schedule.genero !== undefined && (
+                  {/* Género (solo para Educación Física) */}
+                  {schedule.genero !== undefined && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Género</label>
+                      <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Género</label>
                       <select
                         value={schedule.genero}
                         onChange={(e) => updateSchedule(index, 'genero', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
                       >
                         <option value="Varones">Varones</option>
                         <option value="Mujeres">Mujeres</option>
@@ -330,12 +351,14 @@ export function TeacherForm() {
                   )}
                 </div>
 
+                {/* Día y Horario */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-neutral-100">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Día de Consulta</label>
+                    <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Día de Consulta</label>
                     <select
                       value={schedule.dia}
                       onChange={(e) => updateSchedule(index, 'dia', e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
                     >
                       {DIAS.map((dia) => (
                         <option key={dia} value={dia}>{dia}</option>
@@ -343,49 +366,47 @@ export function TeacherForm() {
                     </select>
                   </div>
 
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">Hora Inicio</label>
-                      <input
-                        type="time"
-                        required
-                        value={schedule.horaInicio}
-                        onChange={(e) => updateSchedule(index, 'horaInicio', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700">Hora Fin</label>
-                      <input
-                        type="time"
-                        required
-                        value={schedule.horaFin}
-                        onChange={(e) => updateSchedule(index, 'horaFin', e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Hora Inicio</label>
+                    <input
+                      type="time"
+                      required
+                      value={schedule.horaInicio}
+                      onChange={(e) => updateSchedule(index, 'horaInicio', e.target.value)}
+                      className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
+                    />
                   </div>
 
-                  {schedules.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSchedule(index)}
-                      className="flex items-center gap-2 px-3 py-2 text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 size={16} />
-                      Eliminar
-                    </button>
-                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">Hora Fin</label>
+                    <input
+                      type="time"
+                      required
+                      value={schedule.horaFin}
+                      onChange={(e) => updateSchedule(index, 'horaFin', e.target.value)}
+                      className="block w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:bg-white transition-all"
+                    />
+                  </div>
                 </div>
+
+                {schedules.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSchedule(index)}
+                    className="absolute -top-3 -right-3 w-8 h-8 bg-white border border-neutral-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-50 hover:text-red-700 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                    title="Eliminar bloque"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
 
-          <div className="flex gap-4 justify-end mt-8">
-           
+          <div className="flex justify-end pt-8 mt-8 border-t border-neutral-100">
             <button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="flex items-center gap-2 px-8 py-3 bg-neutral-900 text-white rounded-full font-medium hover:bg-neutral-800 focus:outline-none focus:ring-4 focus:ring-neutral-900/20 transition-all shadow-sm hover:shadow-md"
             >
               <Save size={20} />
               Guardar Horarios

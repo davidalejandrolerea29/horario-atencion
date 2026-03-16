@@ -2,60 +2,70 @@ import React, { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Subject } from '../types';
+import type { Materia } from '../types';
 
 export function SubjectList() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [materias, setMaterias] = useState<Materia[]>([]);
 
   useEffect(() => {
-    loadSubjects();
+    loadMaterias();
   }, []);
 
-  async function loadSubjects() {
+  async function loadMaterias() {
     const { data, error } = await supabase
-      .from('subjects')
+      .from('materias')
       .select('*')
-      .order('curso', { ascending: true });
+      .order('nombre', { ascending: true });
 
     if (error) {
-      console.error('Error loading subjects:', error);
+      console.error('Error loading materias:', error);
       return;
     }
 
-    setSubjects(data || []);
+    setMaterias(data || []);
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Materias por Curso</h2>
-            <Link
-              to="/materias/nueva"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              <Plus size={20} />
-              Nueva Materia
-            </Link>
-          </div>
+    <div className="min-h-screen bg-neutral-50 p-6 md:p-10 font-sans text-neutral-800">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header Options */}
+        <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
+          <Link to="/dashboard" className="text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+            ← Volver al Dashboard
+          </Link>
+          <Link
+            to="/materias/nueva"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white rounded-full text-sm font-medium hover:bg-neutral-800 transition-all shadow-sm hover:shadow-md"
+          >
+            <Plus size={18} />
+            Nueva Materia
+          </Link>
+        </div>
 
+        {/* Lista de Materias */}
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+          <div className="p-6 md:p-8 border-b border-neutral-100">
+            <h2 className="text-2xl font-semibold tracking-tight">Directorio de Materias</h2>
+            <p className="text-sm text-neutral-500 mt-1">Materias disponibles para asignar en los horarios.</p>
+          </div>
+          
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-neutral-50/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materia</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Curso</th>
+                  <th className="px-6 py-4 font-medium text-neutral-500 tracking-wide uppercase text-xs">ID</th>
+                  <th className="px-6 py-4 font-medium text-neutral-500 tracking-wide uppercase text-xs">Materia</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {subjects.map((subject) => (
-                  <tr key={subject.id}>
+              <tbody className="divide-y divide-neutral-100">
+                {materias.map((materia) => (
+                  <tr key={materia.id} className="hover:bg-neutral-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{subject.nombre}</div>
+                      <div className="text-sm text-neutral-400 font-mono">{materia.id}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{subject.curso} {subject.division}</div>
+                      <div className="text-sm font-medium text-neutral-900">{materia.nombre}</div>
                     </td>
                   </tr>
                 ))}

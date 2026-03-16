@@ -1,45 +1,48 @@
-export interface Teacher {
-  id: string;
+export interface Docente {
+  id: number;
   nombre: string;
-  apellido: string;
-  created_at?: string;
 }
 
-export interface Subject {
-  id: string;
+export interface Materia {
+  id: number;
   nombre: string;
-  curso: string;
-  division: string;
-  order: number;
 }
-export interface Prefect {
-  id: string;
+
+export interface Curso {
+  id: number;
   nombre: string;
-  apellido: string;
-  curso: string;
-  division: string;
-  created_at?: string;
+  preceptor_id?: number | string | null;
 }
-export interface TeacherSubject {
-  id: string;
-  teacher_id: string;
-  subject_id: string;
+
+export interface CursoMateria {
+  id: number;
+  curso_id: number;
+  materia_id: number;
+  materia?: Materia;
+  curso?: Curso;
+}
+
+export interface HorarioDocente {
+  id: number;
+  docente_id: number;
+  curso_id: number;
+  materia_id: number;
   dia: string;
   hora_inicio: string;
   hora_fin: string;
-  subject?: Subject;
-  genero?:string;
+  genero?: string | null;
+  docente?: Docente;
+  curso?: Curso;
+  materia?: Materia;
 }
 
-export const CURSOS_DIVISIONES = [
-  '1 I', '1 II', '1 III',
-  '2 I', '2 II', '2 III',
-  '3 I', '3 II', '3 III',
-  '4 I', '4 II', '4 III',
-  '5 I', '5 II', '5 III',
-  '6 I', '6 II', '6 III',
-] as const;
-export type CursoDivision = (typeof CURSOS_DIVISIONES)[number];
+export interface Preceptor {
+  id: number;
+  nombre: string;
+  email?: string;
+  telefono?: string;
+}
+
 export const DIAS = [
   'Lunes',
   'Martes',

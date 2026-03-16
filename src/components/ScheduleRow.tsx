@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Clock, Pencil, Save, X } from 'lucide-react';
-import type { TeacherSubject } from '../types';
+import type { HorarioDocente } from '../types';
 
 interface Props {
-  schedule: TeacherSubject;
+  schedule: HorarioDocente;
   reload: () => void;
 }
 
@@ -23,7 +23,7 @@ export function ScheduleRow({ schedule, reload }: Props) {
 
   const handleSave = async () => {
     const { error } = await supabase
-      .from('teacher_subjects')
+      .from('horarios_docente')
       .update({
         dia: formData.dia,
         hora_inicio: formData.hora_inicio,
@@ -36,7 +36,7 @@ export function ScheduleRow({ schedule, reload }: Props) {
       alert('Hubo un error guardando el horario.');
     } else {
       setIsEditing(false);
-      reload(); // Recarga la lista
+      reload();
     }
   };
 
@@ -44,7 +44,7 @@ export function ScheduleRow({ schedule, reload }: Props) {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-900">
         <Clock size={16} className="text-gray-500" />
-        <span>{schedule.subject?.nombre}</span>
+        <span>{schedule.materia?.nombre}{schedule.genero ? ` (${schedule.genero})` : ''}</span>
         <select
           name="dia"
           value={formData.dia}
@@ -85,7 +85,7 @@ export function ScheduleRow({ schedule, reload }: Props) {
     <div className="flex items-center gap-2 text-sm text-gray-900">
       <Clock size={16} className="text-gray-500" />
       <span>
-        {schedule.subject?.nombre} - {schedule.dia} {schedule.hora_inicio} - {schedule.hora_fin}
+        {schedule.materia?.nombre}{schedule.genero ? ` (${schedule.genero})` : ''} - {schedule.dia} {schedule.hora_inicio} - {schedule.hora_fin}
       </span>
       <button onClick={() => setIsEditing(true)} className="text-blue-600 hover:text-blue-800">
         <Pencil size={16} />
