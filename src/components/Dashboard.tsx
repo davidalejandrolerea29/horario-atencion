@@ -219,19 +219,7 @@ export function Dashboard() {
       return;
     }
 
-    let tableContent = `
-      <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px;">
-        <thead>
-          <tr style="background-color: #f8f9fa;">
-            <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Profesor</th>
-            <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Materia</th>
-            <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Curso</th>
-            <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Día</th>
-            <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Horario</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    const groupedByCurso: Record<string, { cursoNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
 
     docentesForPreceptor.forEach((docente) => {
       const matchingHorarios = docente.horarios.filter((h) =>
@@ -239,34 +227,71 @@ export function Dashboard() {
       );
 
       matchingHorarios.forEach((h) => {
-        tableContent += `
-          <tr>
-            <td style="border: 1px solid #dee2e6; padding: 8px;">${docente.nombre}</td>
-            <td style="border: 1px solid #dee2e6; padding: 8px;">${h.materia?.nombre ? `${h.materia.nombre}${h.genero ? ` (${h.genero})` : ''}` : ''}</td>
-            <td style="border: 1px solid #dee2e6; padding: 8px;">${h.curso?.nombre || ''}</td>
-            <td style="border: 1px solid #dee2e6; padding: 8px;">${h.dia}</td>
-            <td style="border: 1px solid #dee2e6; padding: 8px;">${h.hora_inicio} - ${h.hora_fin}</td>
-          </tr>
-        `;
+        if (!h.curso) return;
+
+        const cursoNombre = h.curso.nombre;
+        if (!groupedByCurso[cursoNombre]) {
+          groupedByCurso[cursoNombre] = {
+            cursoNombre,
+            entries: [],
+          };
+        }
+
+        groupedByCurso[cursoNombre].entries.push({
+          docente: docente.nombre,
+          materia: h.materia?.nombre ? `${h.materia.nombre}${h.genero ? ` (${h.genero})` : ''}` : '',
+          dia: h.dia,
+          horario: `${h.hora_inicio} - ${h.hora_fin}`,
+        });
       });
     });
 
-    tableContent += `</tbody></table>`;
+    const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
+      a.cursoNombre.localeCompare(b.cursoNombre)
+    );
 
-    const cursoNames = preceptorCursos.map(c => c.nombre).join(', ');
+    let groupedTablesContent = '';
+
+    sortedGroups.forEach((group) => {
+      groupedTablesContent += `
+        <div style="page-break-inside: avoid; margin-bottom: 30px;">
+          <div style="margin-top: 10px; border-bottom: 2px solid #ccc; padding-bottom: 5px;">
+            <h3 style="margin: 0; color: #333; font-size: 18px;">Curso: ${group.cursoNombre}</h3>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Preceptor: ${preceptor.nombre}</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px;">
+            <thead>
+              <tr style="background-color: #f8f9fa;">
+                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Profesor</th>
+                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Materia</th>
+                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Día</th>
+                <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left;">Horario</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      group.entries.forEach((entry) => {
+        groupedTablesContent += `
+          <tr>
+            <td style="border: 1px solid #dee2e6; padding: 8px;">${entry.docente}</td>
+            <td style="border: 1px solid #dee2e6; padding: 8px;">${entry.materia}</td>
+            <td style="border: 1px solid #dee2e6; padding: 8px;">${entry.dia}</td>
+            <td style="border: 1px solid #dee2e6; padding: 8px;">${entry.horario}</td>
+          </tr>
+        `;
+      });
+
+      groupedTablesContent += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    });
 
     const pdfContent = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 70px; height: auto;" />
-        </div>
-        <div style="text-align: center; width: 100%; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
-          <h2 style="font-size: 20px; color: #111; margin: 0;">Horarios de Atención</h2>
-          <h3 style="font-size: 14px; color: #555; margin-top: 5px;">Preceptor: ${preceptor.nombre} | Cursos: ${cursoNames}</h3>
-        </div>
-        <div style="page-break-inside: avoid;">
-          ${tableContent}
-        </div>
+        ${groupedTablesContent}
       </div>
     `;
 
