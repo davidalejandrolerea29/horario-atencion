@@ -10,6 +10,22 @@ interface DocenteWithSchedules extends Docente {
   horarios: HorarioDocente[];
 }
 
+interface PdfEntry {
+  docente: string;
+  materia: string;
+  dia: string;
+  horario: string;
+}
+
+interface PdfGroup {
+  cursoNombre: string;
+  preceptorNombre: string;
+  entries: PdfEntry[];
+}
+
+const PDF_ROWS_PER_BOX = 9;
+const PDF_BOXES_PER_PAGE = 2;
+
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -146,7 +162,76 @@ export function Dashboard() {
     );
   };
 
-  const exportToPDF = (selectedCourseIds?: number[]) => {
+  const chunkEntries = <T,>(items: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+
+    for (let index = 0; index < items.length; index += size) {
+      chunks.push(items.slice(index, index + size));
+    }
+
+    return chunks;
+  };
+
+  const buildPdfContent = (groups: PdfGroup[], title: string) => {
+    const boxSections = groups.flatMap((group) =>
+      chunkEntries(group.entries, PDF_ROWS_PER_BOX).map((entriesChunk, chunkIndex, allChunks) => ({
+        cursoNombre: group.cursoNombre,
+        preceptorNombre: group.preceptorNombre,
+        entries: entriesChunk,
+        chunkIndex,
+        totalChunks: allChunks.length,
+      }))
+    );
+
+    const pages = chunkEntries(boxSections, PDF_BOXES_PER_PAGE);
+
+    const pagesContent = pages.map((page, pageIndex) => `
+      <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; min-height: 257mm; padding: 10mm 8mm; box-sizing: border-box;">
+        <div style="text-align: center; margin-bottom: 8mm;">
+          <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 60px; height: auto; display: block; margin: 0 auto 8px;" />
+          <h2 style="margin: 0; color: #111; font-size: 18px;">${title}</h2>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8mm;">
+          ${page.map((box) => `
+            <div style="height: 112mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 6mm; box-sizing: border-box; overflow: hidden;">
+              <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 4px; margin-bottom: 10px;">
+                <h3 style="margin: 0; color: #333; font-size: 18px;">Curso: ${box.cursoNombre}${box.totalChunks > 1 ? ` (${box.chunkIndex + 1}/${box.totalChunks})` : ''}</h3>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Preceptor: ${box.preceptorNombre}</p>
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
+                <thead>
+                  <tr style="background-color: #f8f9fa;">
+                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 28%;">Profesor</th>
+                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 39%;">Materia</th>
+                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 11%;">Día</th>
+                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 22%;">Horario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${box.entries.map((entry) => `
+                    <tr>
+                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.docente}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.materia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.dia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.horario}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `).join('');
+
+    return `
+      <div style="font-family: Arial, sans-serif; background: #fff; color: #111;">
+        ${pagesContent}
+      </div>
+    `;
+  };
+
+  const exportToPDFLegacy = (selectedCourseIds?: number[]) => {
     const allowedCourseIds = selectedCourseIds ? new Set(selectedCourseIds) : null;
     const groupedByCurso: Record<string, { cursoNombre: string; preceptorNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
 
@@ -229,6 +314,50 @@ export function Dashboard() {
     html2pdf().set(opt).from(pdfContent).save();
   };
 
+  const exportToPDF = (selectedCourseIds?: number[]) => {
+    const allowedCourseIds = selectedCourseIds ? new Set(selectedCourseIds) : null;
+    const groupedByCurso: Record<string, PdfGroup> = {};
+
+    docentes.forEach((docente) => {
+      docente.horarios.forEach((h) => {
+        if (!h.curso) return;
+        if (allowedCourseIds && !allowedCourseIds.has(h.curso.id)) return;
+
+        const cursoNombre = h.curso.nombre;
+        if (!groupedByCurso[cursoNombre]) {
+          groupedByCurso[cursoNombre] = {
+            cursoNombre,
+            preceptorNombre: getPreceptorNameForCurso(h.curso),
+            entries: []
+          };
+        }
+
+        groupedByCurso[cursoNombre].entries.push({
+          docente: docente.nombre,
+          materia: h.materia?.nombre ? `${h.materia.nombre}${h.genero ? ` (${h.genero})` : ''}` : '',
+          dia: h.dia,
+          horario: `${h.hora_inicio} - ${h.hora_fin}`,
+        });
+      });
+    });
+
+    const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
+      a.cursoNombre.localeCompare(b.cursoNombre)
+    );
+
+    const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
+
+    const opt = {
+      margin: [0, 0, 0, 0],
+      filename: 'horarios-atencion-general.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+
+    html2pdf().set(opt).from(pdfContent).save();
+  };
+
   const exportSelectedCoursesToPDF = () => {
     if (selectedGeneralCourseIds.length === 0) {
       alert('Selecciona al menos un curso para exportar el PDF general.');
@@ -238,7 +367,7 @@ export function Dashboard() {
     exportToPDF(selectedGeneralCourseIds);
   };
 
-  const exportPreceptorScheduleToPDF = () => {
+  const exportPreceptorScheduleToPDFLegacy = () => {
     if (!selectedPreceptorId) return;
 
     const preceptor = preceptores.find(p => p.id === selectedPreceptorId);
@@ -347,6 +476,82 @@ export function Dashboard() {
 
     const opt = {
       margin: [10, 10, 10, 10],
+      filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+
+    html2pdf().set(opt).from(pdfContent).save();
+  };
+
+  const exportPreceptorScheduleToPDF = () => {
+    if (!selectedPreceptorId) return;
+
+    const preceptor = preceptores.find(p => p.id === selectedPreceptorId);
+    if (!preceptor) {
+      alert('Preceptor no encontrado.');
+      return;
+    }
+
+    const preceptorCursos = cursos.filter(
+      (curso) =>
+        Number(curso.preceptor_id) === preceptor.id &&
+        selectedPreceptorCourseIds.includes(curso.id)
+    );
+
+    if (preceptorCursos.length === 0) {
+      alert('Selecciona al menos un curso para exportar el PDF del preceptor.');
+      return;
+    }
+
+    const preceptorCursoIds = new Set(preceptorCursos.map(c => c.id));
+
+    const docentesForPreceptor = docentes.filter((docente) =>
+      docente.horarios.some((h) => preceptorCursoIds.has(h.curso_id))
+    );
+
+    if (docentesForPreceptor.length === 0) {
+      alert('No se encontraron horarios para los cursos del preceptor.');
+      return;
+    }
+
+    const groupedByCurso: Record<string, PdfGroup> = {};
+
+    docentesForPreceptor.forEach((docente) => {
+      const matchingHorarios = docente.horarios.filter((h) =>
+        preceptorCursoIds.has(h.curso_id)
+      );
+
+      matchingHorarios.forEach((h) => {
+        if (!h.curso) return;
+
+        const cursoNombre = h.curso.nombre;
+        if (!groupedByCurso[cursoNombre]) {
+          groupedByCurso[cursoNombre] = {
+            cursoNombre,
+            preceptorNombre: preceptor.nombre,
+            entries: [],
+          };
+        }
+
+        groupedByCurso[cursoNombre].entries.push({
+          docente: docente.nombre,
+          materia: h.materia?.nombre ? `${h.materia.nombre}${h.genero ? ` (${h.genero})` : ''}` : '',
+          dia: h.dia,
+          horario: `${h.hora_inicio} - ${h.hora_fin}`,
+        });
+      });
+    });
+
+    const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
+      a.cursoNombre.localeCompare(b.cursoNombre)
+    );
+
+    const pdfContent = buildPdfContent(sortedGroups, `Horarios de Atención a padres - ${preceptor.nombre}`);
+
+    const opt = {
+      margin: [0, 0, 0, 0],
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
