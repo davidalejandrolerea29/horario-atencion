@@ -10,24 +10,13 @@ interface DocenteWithSchedules extends Docente {
   horarios: HorarioDocente[];
 }
 
-const PRECEPTOR_PRINTABLE_COURSES = new Set([
-  '1 I',
-  '1 II',
-  '1 III',
-  '2 I',
-  '2 II',
-  '2 III',
-  '3 I',
-  '3 II',
-  '3 III',
-]);
-
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [preceptores, setPreceptores] = useState<Preceptor[]>([]);
   const [selectedPreceptorId, setSelectedPreceptorId] = useState<number | null>(null);
+  const [selectedPreceptorCourseIds, setSelectedPreceptorCourseIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -123,8 +112,26 @@ export function Dashboard() {
     return preceptor ? preceptor.nombre : 'Sin asignar';
   };
 
-  const isPrintablePreceptorCourse = (curso: Curso) =>
-    PRECEPTOR_PRINTABLE_COURSES.has(curso.nombre.trim());
+  const assignedCoursesForSelectedPreceptor = selectedPreceptorId
+    ? cursos.filter((curso) => Number(curso.preceptor_id) === selectedPreceptorId)
+    : [];
+
+  useEffect(() => {
+    if (!selectedPreceptorId) {
+      setSelectedPreceptorCourseIds([]);
+      return;
+    }
+
+    setSelectedPreceptorCourseIds(assignedCoursesForSelectedPreceptor.map((curso) => curso.id));
+  }, [selectedPreceptorId, cursos]);
+
+  const handleSelectedPreceptorCoursesChange = (value: number) => {
+    setSelectedPreceptorCourseIds((current) =>
+      current.includes(value)
+        ? current.filter((courseId) => courseId !== value)
+        : [...current, value]
+    );
+  };
 
   const exportToPDF = () => {
     const groupedByCurso: Record<string, { cursoNombre: string; preceptorNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
@@ -217,11 +224,13 @@ export function Dashboard() {
     }
 
     const preceptorCursos = cursos.filter(
-      (c) => Number(c.preceptor_id) === preceptor.id && isPrintablePreceptorCourse(c)
+      (curso) =>
+        Number(curso.preceptor_id) === preceptor.id &&
+        selectedPreceptorCourseIds.includes(curso.id)
     );
 
     if (preceptorCursos.length === 0) {
-      alert('No se encontraron cursos habilitados para imprimir por este preceptor.');
+      alert('Selecciona al menos un curso para exportar el PDF del preceptor.');
       return;
     }
 
@@ -399,21 +408,51 @@ export function Dashboard() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl p-1.5 shadow-sm w-full sm:w-auto">
-              <select
-                value={selectedPreceptorId || ''}
-                onChange={(e) => setSelectedPreceptorId(e.target.value ? Number(e.target.value) : null)}
-                className="px-3 py-1.5 bg-transparent border-none text-sm focus:ring-0 cursor-pointer w-full"
-              >
-                <option value="">Filtrar por Preceptor PDF</option>
-                {preceptores.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl p-1.5 shadow-sm w-full sm:w-auto">
+                <select
+                  value={selectedPreceptorId || ''}
+                  onChange={(e) => setSelectedPreceptorId(e.target.value ? Number(e.target.value) : null)}
+                  className="px-3 py-1.5 bg-transparent border-none text-sm focus:ring-0 cursor-pointer w-full"
+                >
+                  <option value="">Seleccionar preceptor</option>
+                  {preceptores.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-white border border-neutral-200 rounded-xl px-4 py-3 shadow-sm w-full sm:min-w-[280px]">
+                <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+                  Cursos para PDF
+                </div>
+                {selectedPreceptorId ? (
+                  assignedCoursesForSelectedPreceptor.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto">
+                      {assignedCoursesForSelectedPreceptor.map((curso) => (
+                        <label key={curso.id} className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPreceptorCourseIds.includes(curso.id)}
+                            onChange={() => handleSelectedPreceptorCoursesChange(curso.id)}
+                            className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900/20"
+                          />
+                          <span>{curso.nombre}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-500">Este preceptor no tiene cursos asignados.</p>
+                  )
+                ) : (
+                  <p className="text-sm text-neutral-500">Primero selecciona un preceptor.</p>
+                )}
+              </div>
+
               <button
                 onClick={exportPreceptorScheduleToPDF}
-                disabled={!selectedPreceptorId}
-                className="p-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={!selectedPreceptorId || selectedPreceptorCourseIds.length === 0}
+                className="p-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-fit self-end"
                 title="Exportar PDF de Preceptor"
               >
                 <Download size={18} />
