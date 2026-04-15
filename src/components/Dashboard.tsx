@@ -23,7 +23,6 @@ interface PdfGroup {
   entries: PdfEntry[];
 }
 
-const PDF_ROWS_PER_BOX = 9;
 const PDF_BOXES_PER_PAGE = 2;
 
 export function Dashboard() {
@@ -173,17 +172,7 @@ export function Dashboard() {
   };
 
   const buildPdfContent = (groups: PdfGroup[], title: string) => {
-    const boxSections = groups.flatMap((group) =>
-      chunkEntries(group.entries, PDF_ROWS_PER_BOX).map((entriesChunk, chunkIndex, allChunks) => ({
-        cursoNombre: group.cursoNombre,
-        preceptorNombre: group.preceptorNombre,
-        entries: entriesChunk,
-        chunkIndex,
-        totalChunks: allChunks.length,
-      }))
-    );
-
-    const pages = chunkEntries(boxSections, PDF_BOXES_PER_PAGE);
+    const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
       <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; min-height: 257mm; padding: 10mm 8mm; box-sizing: border-box;">
@@ -195,7 +184,7 @@ export function Dashboard() {
           ${page.map((box) => `
             <div style="height: 112mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 6mm; box-sizing: border-box; overflow: hidden;">
               <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 4px; margin-bottom: 10px;">
-                <h3 style="margin: 0; color: #333; font-size: 18px;">Curso: ${box.cursoNombre}${box.totalChunks > 1 ? ` (${box.chunkIndex + 1}/${box.totalChunks})` : ''}</h3>
+                <h3 style="margin: 0; color: #333; font-size: 18px;">Curso: ${box.cursoNombre}</h3>
                 <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Preceptor: ${box.preceptorNombre}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
