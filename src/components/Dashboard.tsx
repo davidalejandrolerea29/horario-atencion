@@ -24,6 +24,9 @@ interface PdfGroup {
 }
 
 const PDF_BOXES_PER_PAGE = 2;
+const PDF_PAGE_PADDING_MM = 8;
+const PDF_PAGE_GAP_MM = 6;
+const PDF_BOX_HEIGHT_MM = 104;
 
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
@@ -175,34 +178,34 @@ export function Dashboard() {
     const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
-      <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; min-height: 257mm; padding: 10mm 8mm; box-sizing: border-box;">
-        <div style="text-align: center; margin-bottom: 8mm;">
-          <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 60px; height: auto; display: block; margin: 0 auto 8px;" />
-          <h2 style="margin: 0; color: #111; font-size: 18px;">${title}</h2>
+      <section style="page-break-before: ${pageIndex === 0 ? 'auto' : 'always'}; page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; break-before: ${pageIndex === 0 ? 'auto' : 'page'}; break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'page'}; page-break-inside: avoid; break-inside: avoid; width: 210mm; min-height: 297mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff;">
+        <div style="text-align: center; margin-bottom: 5mm;">
+          <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 42px; height: auto; display: block; margin: 0 auto 6px;" />
+          <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 8mm;">
+        <div style="display: flex; flex-direction: column; gap: ${PDF_PAGE_GAP_MM}mm;">
           ${page.map((box) => `
-            <div style="height: 112mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 6mm; box-sizing: border-box; overflow: hidden;">
-              <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 4px; margin-bottom: 10px;">
-                <h3 style="margin: 0; color: #333; font-size: 18px;">Curso: ${box.cursoNombre}</h3>
-                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Preceptor: ${box.preceptorNombre}</p>
+            <div style="height: ${PDF_BOX_HEIGHT_MM}mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 4mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
+              <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 3px; margin-bottom: 7px;">
+                <h3 style="margin: 0; color: #333; font-size: 15px; line-height: 1.2;">Curso: ${box.cursoNombre}</h3>
+                <p style="margin: 4px 0 0 0; color: #666; font-size: 12px; line-height: 1.2;">Preceptor: ${box.preceptorNombre}</p>
               </div>
-              <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed;">
                 <thead>
                   <tr style="background-color: #f8f9fa;">
-                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 28%;">Profesor</th>
-                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 39%;">Materia</th>
-                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 11%;">Día</th>
-                    <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left; width: 22%;">Horario</th>
+                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 28%;">Profesor</th>
+                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 39%;">Materia</th>
+                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 11%;">Día</th>
+                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 22%;">Horario</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${box.entries.map((entry) => `
                     <tr>
-                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.docente}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.materia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.dia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 7px;">${entry.horario}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.docente}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.materia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.dia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.horario}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -341,6 +344,7 @@ export function Dashboard() {
       filename: 'horarios-atencion-general.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
+      pagebreak: { mode: ['css', 'legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
@@ -544,6 +548,7 @@ export function Dashboard() {
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
+      pagebreak: { mode: ['css', 'legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 

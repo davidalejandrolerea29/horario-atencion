@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Clock, Pencil, Save, X } from 'lucide-react';
+import { Clock, Pencil, Save, Trash2, X } from 'lucide-react';
 import type { HorarioDocente } from '../types';
 
 interface Props {
@@ -38,6 +38,23 @@ export function ScheduleRow({ schedule, reload }: Props) {
       setIsEditing(false);
       reload();
     }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Quieres eliminar este horario?')) return;
+
+    const { error } = await supabase
+      .from('horarios_docente')
+      .delete()
+      .eq('id', schedule.id);
+
+    if (error) {
+      console.error('Error deleting schedule:', error);
+      alert('Hubo un error eliminando el horario.');
+      return;
+    }
+
+    reload();
   };
 
   if (isEditing) {
@@ -89,6 +106,9 @@ export function ScheduleRow({ schedule, reload }: Props) {
       </span>
       <button onClick={() => setIsEditing(true)} className="text-blue-600 hover:text-blue-800">
         <Pencil size={16} />
+      </button>
+      <button onClick={handleDelete} className="text-red-600 hover:text-red-800" title="Eliminar horario">
+        <Trash2 size={16} />
       </button>
     </div>
   );
