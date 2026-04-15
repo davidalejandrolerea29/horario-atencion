@@ -27,6 +27,8 @@ const PDF_BOXES_PER_PAGE = 2;
 const PDF_PAGE_PADDING_MM = 8;
 const PDF_PAGE_GAP_MM = 6;
 const PDF_BOX_HEIGHT_MM = 104;
+const PDF_PAGE_WIDTH_MM = 210;
+const PDF_PAGE_HEIGHT_MM = 297;
 
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
@@ -178,7 +180,7 @@ export function Dashboard() {
     const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
-      <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'page'}; page-break-inside: avoid; break-inside: avoid; width: 210mm; min-height: 297mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff;">
+      <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'page'}; page-break-inside: avoid; break-inside: avoid; width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff;">
         <div style="text-align: center; margin-bottom: 5mm;">
           <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 42px; height: auto; display: block; margin: 0 auto 6px;" />
           <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
@@ -217,7 +219,7 @@ export function Dashboard() {
     `).join('');
 
     return `
-      <div style="font-family: Arial, sans-serif; background: #fff; color: #111;">
+      <div style="font-family: Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0;">
         ${pagesContent}
       </div>
     `;
