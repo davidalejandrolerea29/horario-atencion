@@ -17,6 +17,7 @@ export function Dashboard() {
   const [preceptores, setPreceptores] = useState<Preceptor[]>([]);
   const [selectedPreceptorId, setSelectedPreceptorId] = useState<number | null>(null);
   const [selectedPreceptorCourseIds, setSelectedPreceptorCourseIds] = useState<number[]>([]);
+  const [selectedGeneralCourseIds, setSelectedGeneralCourseIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +32,10 @@ export function Dashboard() {
     }
     loadAll();
   }, []);
+
+  useEffect(() => {
+    setSelectedGeneralCourseIds(cursos.map((curso) => curso.id));
+  }, [cursos]);
 
   async function loadCursos() {
     const { data, error } = await supabase
@@ -133,12 +138,22 @@ export function Dashboard() {
     );
   };
 
-  const exportToPDF = () => {
+  const handleSelectedGeneralCoursesChange = (value: number) => {
+    setSelectedGeneralCourseIds((current) =>
+      current.includes(value)
+        ? current.filter((courseId) => courseId !== value)
+        : [...current, value]
+    );
+  };
+
+  const exportToPDF = (selectedCourseIds?: number[]) => {
+    const allowedCourseIds = selectedCourseIds ? new Set(selectedCourseIds) : null;
     const groupedByCurso: Record<string, { cursoNombre: string; preceptorNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
 
     docentes.forEach((docente) => {
       docente.horarios.forEach((h) => {
         if (!h.curso) return;
+        if (allowedCourseIds && !allowedCourseIds.has(h.curso.id)) return;
         const cursoNombre = h.curso.nombre;
         if (!groupedByCurso[cursoNombre]) {
           groupedByCurso[cursoNombre] = { 
@@ -212,6 +227,15 @@ export function Dashboard() {
     };
 
     html2pdf().set(opt).from(pdfContent).save();
+  };
+
+  const exportSelectedCoursesToPDF = () => {
+    if (selectedGeneralCourseIds.length === 0) {
+      alert('Selecciona al menos un curso para exportar el PDF general.');
+      return;
+    }
+
+    exportToPDF(selectedGeneralCourseIds);
   };
 
   const exportPreceptorScheduleToPDF = () => {
@@ -458,9 +482,59 @@ export function Dashboard() {
                 <Download size={18} />
               </button>
             </div>
+
+            <div className="bg-white border border-neutral-200 rounded-xl px-4 py-3 shadow-sm w-full sm:min-w-[280px]">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Cursos para PDF General
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGeneralCourseIds(cursos.map((curso) => curso.id))}
+                    className="text-neutral-500 hover:text-neutral-900 transition-colors"
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGeneralCourseIds([])}
+                    className="text-neutral-500 hover:text-neutral-900 transition-colors"
+                  >
+                    Ninguno
+                  </button>
+                </div>
+              </div>
+              {cursos.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto">
+                  {cursos.map((curso) => (
+                    <label key={curso.id} className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedGeneralCourseIds.includes(curso.id)}
+                        onChange={() => handleSelectedGeneralCoursesChange(curso.id)}
+                        className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900/20"
+                      />
+                      <span>{curso.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500">No hay cursos disponibles.</p>
+              )}
+            </div>
+
+            <button
+              onClick={exportSelectedCoursesToPDF}
+              disabled={selectedGeneralCourseIds.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-sm font-medium hover:bg-amber-100 hover:border-amber-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all w-full sm:w-auto"
+            >
+              <Download size={18} />
+              Exportar General por Cursos
+            </button>
             
             <button
-              onClick={exportToPDF}
+              onClick={() => exportToPDF()}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-100 text-neutral-800 border border-neutral-200 rounded-xl text-sm font-medium hover:bg-neutral-200 hover:border-neutral-300 transition-all w-full sm:w-auto"
             >
               <Download size={18} />
