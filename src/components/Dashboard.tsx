@@ -27,8 +27,8 @@ const PDF_BOXES_PER_PAGE = 2;
 const PDF_PAGE_PADDING_MM = 8;
 const PDF_PAGE_GAP_MM = 6;
 const PDF_BOX_HEIGHT_MM = 104;
-const PDF_PAGE_WIDTH_MM = 210;
-const PDF_PAGE_HEIGHT_MM = 297;
+const PDF_SAFE_PAGE_WIDTH_MM = 194;
+const PDF_SAFE_PAGE_HEIGHT_MM = 279;
 
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
@@ -180,7 +180,7 @@ export function Dashboard() {
     const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
-      <section style="page-break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'always'}; break-after: ${pageIndex === pages.length - 1 ? 'auto' : 'page'}; page-break-inside: avoid; break-inside: avoid; width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff;">
+      <section style="width: ${PDF_SAFE_PAGE_WIDTH_MM}mm; height: ${PDF_SAFE_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid;">
         <div style="text-align: center; margin-bottom: 5mm;">
           <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 42px; height: auto; display: block; margin: 0 auto 6px;" />
           <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
@@ -216,6 +216,7 @@ export function Dashboard() {
           `).join('')}
         </div>
       </section>
+      ${pageIndex === pages.length - 1 ? '' : '<div class="html2pdf__page-break"></div>'}
     `).join('');
 
     return `
@@ -346,7 +347,7 @@ export function Dashboard() {
       filename: 'horarios-atencion-general.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      pagebreak: { mode: ['css'] },
+      pagebreak: { mode: ['legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
@@ -550,7 +551,7 @@ export function Dashboard() {
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      pagebreak: { mode: ['css'] },
+      pagebreak: { mode: ['legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
