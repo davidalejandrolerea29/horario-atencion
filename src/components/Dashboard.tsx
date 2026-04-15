@@ -10,6 +10,18 @@ interface DocenteWithSchedules extends Docente {
   horarios: HorarioDocente[];
 }
 
+const PRECEPTOR_PRINTABLE_COURSES = new Set([
+  '1 I',
+  '1 II',
+  '1 III',
+  '2 I',
+  '2 II',
+  '2 III',
+  '3 I',
+  '3 II',
+  '3 III',
+]);
+
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -111,6 +123,9 @@ export function Dashboard() {
     return preceptor ? preceptor.nombre : 'Sin asignar';
   };
 
+  const isPrintablePreceptorCourse = (curso: Curso) =>
+    PRECEPTOR_PRINTABLE_COURSES.has(curso.nombre.trim());
+
   const exportToPDF = () => {
     const groupedByCurso: Record<string, { cursoNombre: string; preceptorNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
 
@@ -201,10 +216,12 @@ export function Dashboard() {
       return;
     }
 
-    const preceptorCursos = cursos.filter(c => Number(c.preceptor_id) === preceptor.id);
+    const preceptorCursos = cursos.filter(
+      (c) => Number(c.preceptor_id) === preceptor.id && isPrintablePreceptorCourse(c)
+    );
 
     if (preceptorCursos.length === 0) {
-      alert('No se encontraron cursos asignados a este preceptor.');
+      alert('No se encontraron cursos habilitados para imprimir por este preceptor.');
       return;
     }
 
