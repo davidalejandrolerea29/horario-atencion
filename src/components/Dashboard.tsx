@@ -24,10 +24,10 @@ interface PdfGroup {
 }
 
 const PDF_BOXES_PER_PAGE = 2;
-const PDF_PAGE_PADDING_MM = 1;
-const PDF_PAGE_GAP_MM = 1;
+const PDF_PAGE_PADDING_MM = 4;
+const PDF_PAGE_GAP_MM = 3;
 const PDF_BOX_WIDTH_MM = 202;
-const PDF_BOX_HEIGHT_MM = 147;
+const PDF_BOX_HEIGHT_MM = 143;
 const PDF_PAGE_WIDTH_MM = 210;
 const PDF_PAGE_HEIGHT_MM = 297;
 
@@ -339,11 +339,10 @@ export function Dashboard() {
     const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
 
     const opt = {
-      margin: 10,
+      margin: 0,
       filename: 'horarios-atencion-general.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      pagebreak: { mode: ['legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
@@ -543,11 +542,10 @@ export function Dashboard() {
     const pdfContent = buildPdfContent(sortedGroups, `Horarios de Atención a padres - ${preceptor.nombre}`);
 
     const opt = {
-      margin: 10,
+      margin: 0,
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      pagebreak: { mode: ['legacy'] },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
