@@ -24,11 +24,12 @@ interface PdfGroup {
 }
 
 const PDF_BOXES_PER_PAGE = 2;
-const PDF_PAGE_PADDING_MM = 8;
-const PDF_PAGE_GAP_MM = 6;
+const PDF_PAGE_PADDING_MM = 6;
+const PDF_PAGE_GAP_MM = 4;
+const PDF_BOX_WIDTH_MM = 150;
 const PDF_BOX_HEIGHT_MM = 130;
-const PDF_SAFE_PAGE_WIDTH_MM = 194;
-const PDF_SAFE_PAGE_HEIGHT_MM = 279;
+const PDF_PAGE_WIDTH_MM = 210;
+const PDF_PAGE_HEIGHT_MM = 297;
 
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
@@ -180,14 +181,14 @@ export function Dashboard() {
     const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
-      <section style="width: ${PDF_SAFE_PAGE_WIDTH_MM}mm; height: ${PDF_SAFE_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid;">
-        <div style="text-align: center; margin-bottom: 5mm;">
+      <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid;">
+        <div style="text-align: center; margin-bottom: 3mm;">
          
           <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
         </div>
-        <div style="display: flex; flex-direction: column; gap: ${PDF_PAGE_GAP_MM}mm;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: ${PDF_PAGE_GAP_MM}mm;">
           ${page.map((box) => `
-            <div style="height: ${PDF_BOX_HEIGHT_MM}mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 4mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
+            <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 4mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 3px; margin-bottom: 7px;">
                 <h3 style="margin: 0; color: #333; font-size: 15px; line-height: 1.2;">Curso: ${box.cursoNombre}</h3>
              
