@@ -26,7 +26,7 @@ interface PdfGroup {
 const PDF_BOXES_PER_PAGE = 2;
 const PDF_PAGE_PADDING_MM = 8;
 const PDF_PAGE_GAP_MM = 6;
-const PDF_BOX_HEIGHT_MM = 104;
+const PDF_BOX_HEIGHT_MM = 130;
 const PDF_SAFE_PAGE_WIDTH_MM = 194;
 const PDF_SAFE_PAGE_HEIGHT_MM = 279;
 
@@ -182,7 +182,7 @@ export function Dashboard() {
     const pagesContent = pages.map((page, pageIndex) => `
       <section style="width: ${PDF_SAFE_PAGE_WIDTH_MM}mm; height: ${PDF_SAFE_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid;">
         <div style="text-align: center; margin-bottom: 5mm;">
-          <img src="/logo_gsm.png" alt="Logo GSM" style="max-width: 42px; height: auto; display: block; margin: 0 auto 6px;" />
+         
           <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
         </div>
         <div style="display: flex; flex-direction: column; gap: ${PDF_PAGE_GAP_MM}mm;">
@@ -190,7 +190,7 @@ export function Dashboard() {
             <div style="height: ${PDF_BOX_HEIGHT_MM}mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 4mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 3px; margin-bottom: 7px;">
                 <h3 style="margin: 0; color: #333; font-size: 15px; line-height: 1.2;">Curso: ${box.cursoNombre}</h3>
-                <p style="margin: 4px 0 0 0; color: #666; font-size: 12px; line-height: 1.2;">Preceptor: ${box.preceptorNombre}</p>
+             
               </div>
               <table style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed;">
                 <thead>
