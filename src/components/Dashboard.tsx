@@ -26,7 +26,7 @@ interface PdfGroup {
 const PDF_BOXES_PER_PAGE = 2;
 const PDF_PAGE_PADDING_MM = 6;
 const PDF_PAGE_GAP_MM = 4;
-const PDF_BOX_WIDTH_MM = 150;
+const PDF_BOX_WIDTH_MM = 190;
 const PDF_BOX_HEIGHT_MM = 130;
 const PDF_PAGE_WIDTH_MM = 210;
 const PDF_PAGE_HEIGHT_MM = 297;
@@ -181,7 +181,7 @@ export function Dashboard() {
     const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
 
     const pagesContent = pages.map((page, pageIndex) => `
-      <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid;">
+      <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === pages.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
         <div style="text-align: center; margin-bottom: 3mm;">
          
           <h2 style="margin: 0; color: #111; font-size: 16px; line-height: 1.2;">${title}</h2>
@@ -190,25 +190,25 @@ export function Dashboard() {
           ${page.map((box) => `
             <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; border: 1px solid #d4d4d8; border-radius: 8px; padding: 4mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="border-bottom: 2px solid #d4d4d8; padding-bottom: 3px; margin-bottom: 7px;">
-                <h3 style="margin: 0; color: #333; font-size: 15px; line-height: 1.2;">Curso: ${box.cursoNombre}</h3>
+                <h3 style="margin: 0; color: #333; font-size: 17px; line-height: 1.2;">Curso: ${box.cursoNombre}</h3>
              
               </div>
-              <table style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
                 <thead>
                   <tr style="background-color: #f8f9fa;">
-                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 28%;">Profesor</th>
-                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 39%;">Materia</th>
+                    <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left; width: 28%;">Profesor</th>
+                    <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left; width: 39%;">Materia</th>
                     <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 11%;">Día</th>
-                    <th style="border: 1px solid #dee2e6; padding: 5px; text-align: left; width: 22%;">Horario</th>
+                    <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left; width: 22%;">Horario</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${box.entries.map((entry) => `
                     <tr>
-                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.docente}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.materia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.dia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 4px; line-height: 1.15;">${entry.horario}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.docente}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.materia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.dia}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.horario}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -217,7 +217,6 @@ export function Dashboard() {
           `).join('')}
         </div>
       </section>
-      ${pageIndex === pages.length - 1 ? '' : '<div class="html2pdf__page-break"></div>'}
     `).join('');
 
     return `
