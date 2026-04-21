@@ -343,7 +343,7 @@ export function Dashboard() {
     const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: 10,
       filename: 'horarios-atencion-general.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
@@ -547,7 +547,7 @@ export function Dashboard() {
     const pdfContent = buildPdfContent(sortedGroups, `Horarios de Atención a padres - ${preceptor.nombre}`);
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: 10,
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
