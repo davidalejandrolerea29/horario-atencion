@@ -24,10 +24,10 @@ interface PdfGroup {
 }
 
 const PDF_BOXES_PER_PAGE = 2;
-const PDF_PAGE_PADDING_MM = 4;
-const PDF_PAGE_GAP_MM = 2;
-const PDF_BOX_WIDTH_MM = 198;
-const PDF_BOX_HEIGHT_MM = 143;
+const PDF_PAGE_PADDING_MM = 1;
+const PDF_PAGE_GAP_MM = 1;
+const PDF_BOX_WIDTH_MM = 202;
+const PDF_BOX_HEIGHT_MM = 147;
 const PDF_PAGE_WIDTH_MM = 210;
 const PDF_PAGE_HEIGHT_MM = 297;
 
@@ -184,8 +184,8 @@ export function Dashboard() {
       <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === pages.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
         <div style="display: flex; flex-direction: column; align-items: center; gap: ${PDF_PAGE_GAP_MM}mm;">
           ${page.map((box) => `
-            <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; padding: 1.5mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
-              <div style="padding-bottom: 2px; margin-bottom: 4px;">
+            <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; padding: 1mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
+              <div style="padding-bottom: 1px; margin-bottom: 2px;">
                 <h3 style="margin: 0; color: #333; font-size: 14px; line-height: 1.1;">Curso: ${box.cursoNombre}</h3>
              
               </div>
