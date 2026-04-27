@@ -233,12 +233,14 @@ export function Dashboard() {
 
   const savePdfFromHtml = async (html: string, options: { filename: string }) => {
     const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '0';
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
     container.style.top = '0';
-    container.style.zIndex = '-1';
+    container.style.width = `${PDF_PAGE_WIDTH_MM}mm`;
     container.style.pointerEvents = 'none';
     container.style.background = '#fff';
+    container.style.opacity = '1';
+    container.style.visibility = 'visible';
     container.innerHTML = html;
     document.body.appendChild(container);
 
@@ -252,6 +254,10 @@ export function Dashboard() {
             scale: 2,
             useCORS: true,
             backgroundColor: '#ffffff',
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: container.scrollWidth,
+            windowHeight: container.scrollHeight,
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: { mode: ['css', 'legacy'] },
@@ -828,4 +834,5 @@ export function Dashboard() {
     </div>
   );
 }
+
 
