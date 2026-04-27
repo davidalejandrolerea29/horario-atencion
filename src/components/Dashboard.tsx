@@ -31,6 +31,14 @@ const PDF_BOX_HEIGHT_MM = 143;
 const PDF_PAGE_WIDTH_MM = 210;
 const PDF_PAGE_HEIGHT_MM = 297;
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 export function Dashboard() {
   const [docentes, setDocentes] = useState<DocenteWithSchedules[]>([]);
   const [cursos, setCursos] = useState<Curso[]>([]);
@@ -178,7 +186,7 @@ export function Dashboard() {
   };
 
   const buildPdfContent = (groups: PdfGroup[], title: string) => {
-    const pages = groups.map((group) => Array.from({ length: PDF_BOXES_PER_PAGE }, () => group));
+    const pages = chunkEntries(groups, PDF_BOXES_PER_PAGE);
 
     const pagesContent = pages.map((page, pageIndex) => `
       <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === pages.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
@@ -186,8 +194,8 @@ export function Dashboard() {
           ${page.map((box) => `
             <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; padding: 1mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="padding-bottom: 1px; margin-bottom: 2px;">
-                <h3 style="margin: 0; color: #333; font-size: 14px; line-height: 1.1;">Curso: ${box.cursoNombre}</h3>
-             
+                <h3 style="margin: 0; color: #333; font-size: 14px; line-height: 1.1;">Curso: ${escapeHtml(box.cursoNombre)}</h3>
+                <p style="margin: 4px 0 0; color: #666; font-size: 11px; line-height: 1.1;">Preceptor: ${escapeHtml(box.preceptorNombre)}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
                 <thead>
@@ -201,10 +209,10 @@ export function Dashboard() {
                 <tbody>
                   ${box.entries.map((entry) => `
                     <tr>
-                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.docente}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.materia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.dia}</td>
-                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${entry.horario}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.docente)}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.materia)}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.dia)}</td>
+                      <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.horario)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -217,9 +225,42 @@ export function Dashboard() {
 
     return `
       <div style="font-family: Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0;">
+        <h2 style="margin: 0; padding: 0; position: absolute; left: -9999px;">${escapeHtml(title)}</h2>
         ${pagesContent}
       </div>
     `;
+  };
+
+  const savePdfFromHtml = async (html: string, options: { filename: string }) => {
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.top = '0';
+    container.style.zIndex = '-1';
+    container.style.pointerEvents = 'none';
+    container.style.background = '#fff';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    try {
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename: options.filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] },
+        })
+        .from(container)
+        .save();
+    } finally {
+      container.remove();
+    }
   };
 
   const exportToPDFLegacy = (selectedCourseIds?: number[]) => {
@@ -338,15 +379,7 @@ export function Dashboard() {
 
     const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
 
-    const opt = {
-      margin: 0,
-      filename: 'horarios-atencion-general.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    };
-
-    html2pdf().set(opt).from(pdfContent).save();
+    void savePdfFromHtml(pdfContent, { filename: 'horarios-atencion-general.pdf' });
   };
 
   const exportSelectedCoursesToPDF = () => {
@@ -541,15 +574,9 @@ export function Dashboard() {
 
     const pdfContent = buildPdfContent(sortedGroups, `Horarios de Atención a padres - ${preceptor.nombre}`);
 
-    const opt = {
-      margin: 0,
+    void savePdfFromHtml(pdfContent, {
       filename: `horarios-${preceptor.nombre.replace(/\s+/g, '-')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    };
-
-    html2pdf().set(opt).from(pdfContent).save();
+    });
   };
 
   async function deleteDocente(docenteId: number) {
@@ -801,3 +828,4 @@ export function Dashboard() {
     </div>
   );
 }
+
