@@ -270,13 +270,15 @@ export function Dashboard() {
   };
 
   const exportToPDFLegacy = (selectedCourseIds?: number[]) => {
-    const allowedCourseIds = selectedCourseIds ? new Set(selectedCourseIds) : null;
+    const allowedCourseIds = selectedCourseIds
+      ? new Set(selectedCourseIds.map((courseId) => Number(courseId)))
+      : null;
     const groupedByCurso: Record<string, { cursoNombre: string; preceptorNombre: string; entries: { docente: string; materia: string; dia: string; horario: string }[] }> = {};
 
     docentes.forEach((docente) => {
       docente.horarios.forEach((h) => {
         if (!h.curso) return;
-        if (allowedCourseIds && !allowedCourseIds.has(h.curso.id)) return;
+        if (allowedCourseIds && !allowedCourseIds.has(Number(h.curso.id))) return;
         const cursoNombre = h.curso.nombre;
         if (!groupedByCurso[cursoNombre]) {
           groupedByCurso[cursoNombre] = { 
@@ -297,6 +299,11 @@ export function Dashboard() {
     const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
       a.cursoNombre.localeCompare(b.cursoNombre)
     );
+
+    if (sortedGroups.length === 0) {
+      alert('No se encontraron horarios para los cursos seleccionados.');
+      return;
+    }
 
     let pdfContent = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -401,7 +408,7 @@ export function Dashboard() {
       return;
     }
 
-    exportToPDF(selectedGeneralCourseIds);
+    exportToPDFLegacy(selectedGeneralCourseIds);
   };
 
   const exportPreceptorScheduleToPDFLegacy = () => {
