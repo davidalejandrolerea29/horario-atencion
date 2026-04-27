@@ -353,13 +353,15 @@ export function Dashboard() {
   };
 
   const exportToPDF = (selectedCourseIds?: number[]) => {
-    const allowedCourseIds = selectedCourseIds ? new Set(selectedCourseIds) : null;
+    const allowedCourseIds = selectedCourseIds
+      ? new Set(selectedCourseIds.map((courseId) => Number(courseId)))
+      : null;
     const groupedByCurso: Record<string, PdfGroup> = {};
 
     docentes.forEach((docente) => {
       docente.horarios.forEach((h) => {
         if (!h.curso) return;
-        if (allowedCourseIds && !allowedCourseIds.has(h.curso.id)) return;
+        if (allowedCourseIds && !allowedCourseIds.has(Number(h.curso.id))) return;
 
         const cursoNombre = h.curso.nombre;
         if (!groupedByCurso[cursoNombre]) {
@@ -382,6 +384,11 @@ export function Dashboard() {
     const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
       a.cursoNombre.localeCompare(b.cursoNombre)
     );
+
+    if (sortedGroups.length === 0) {
+      alert('No se encontraron horarios para los cursos seleccionados.');
+      return;
+    }
 
     const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
 
