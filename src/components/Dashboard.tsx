@@ -175,27 +175,15 @@ export function Dashboard() {
     );
   };
 
-  const chunkEntries = <T,>(items: T[], size: number): T[][] => {
-    const chunks: T[][] = [];
-
-    for (let index = 0; index < items.length; index += size) {
-      chunks.push(items.slice(index, index + size));
-    }
-
-    return chunks;
-  };
-
   const buildPdfContent = (groups: PdfGroup[], title: string) => {
-    const pages = chunkEntries(groups, PDF_BOXES_PER_PAGE);
-
-    const pagesContent = pages.map((page, pageIndex) => `
-      <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === pages.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
+    const pagesContent = groups.map((group, pageIndex) => `
+      <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === groups.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: ${PDF_PAGE_GAP_MM}mm; min-height: 100%;">
-          ${page.map((box) => `
+          ${Array.from({ length: PDF_BOXES_PER_PAGE }, () => `
             <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; padding: 1mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="padding-bottom: 1px; margin-bottom: 2px;">
-                <h3 style="margin: 0; color: #333; font-size: 14px; line-height: 1.1;">Curso: ${escapeHtml(box.cursoNombre)}</h3>
-                <p style="margin: 4px 0 0; color: #666; font-size: 11px; line-height: 1.1;">Preceptor: ${escapeHtml(box.preceptorNombre)}</p>
+                <h3 style="margin: 0; color: #333; font-size: 14px; line-height: 1.1;">Curso: ${escapeHtml(group.cursoNombre)}</h3>
+                <p style="margin: 4px 0 0; color: #666; font-size: 11px; line-height: 1.1;">Preceptor: ${escapeHtml(group.preceptorNombre)}</p>
               </div>
               <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
                 <thead>
@@ -207,7 +195,7 @@ export function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${box.entries.map((entry) => `
+                  ${group.entries.map((entry) => `
                     <tr>
                       <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.docente)}</td>
                       <td style="border: 1px solid #dee2e6; padding: 5px; line-height: 1.2;">${escapeHtml(entry.materia)}</td>
