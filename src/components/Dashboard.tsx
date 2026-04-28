@@ -269,6 +269,24 @@ export function Dashboard() {
     }
   };
 
+  const savePdfFromString = (html: string, options: { filename: string }) => {
+    html2pdf()
+      .set({
+        margin: 0,
+        filename: options.filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      })
+      .from(html)
+      .save();
+  };
+
   const exportToPDFLegacy = (selectedCourseIds?: number[]) => {
     const allowedCourseIds = selectedCourseIds
       ? new Set(selectedCourseIds.map((courseId) => Number(courseId)))
@@ -408,7 +426,43 @@ export function Dashboard() {
       return;
     }
 
-    exportToPDF(selectedGeneralCourseIds);
+    const allowedCourseIds = new Set(selectedGeneralCourseIds.map((courseId) => Number(courseId)));
+    const groupedByCurso: Record<string, PdfGroup> = {};
+
+    docentes.forEach((docente) => {
+      docente.horarios.forEach((h) => {
+        if (!h.curso) return;
+        if (!allowedCourseIds.has(Number(h.curso.id))) return;
+
+        const cursoNombre = h.curso.nombre;
+        if (!groupedByCurso[cursoNombre]) {
+          groupedByCurso[cursoNombre] = {
+            cursoNombre,
+            preceptorNombre: getPreceptorNameForCurso(h.curso),
+            entries: []
+          };
+        }
+
+        groupedByCurso[cursoNombre].entries.push({
+          docente: docente.nombre,
+          materia: h.materia?.nombre ? `${h.materia.nombre}${h.genero ? ` (${h.genero})` : ''}` : '',
+          dia: h.dia,
+          horario: `${h.hora_inicio} - ${h.hora_fin}`,
+        });
+      });
+    });
+
+    const sortedGroups = Object.values(groupedByCurso).sort((a, b) =>
+      a.cursoNombre.localeCompare(b.cursoNombre)
+    );
+
+    if (sortedGroups.length === 0) {
+      alert('No se encontraron horarios para los cursos seleccionados.');
+      return;
+    }
+
+    const pdfContent = buildPdfContent(sortedGroups, 'Horarios de Atención a padres');
+    savePdfFromString(pdfContent, { filename: 'horarios-atencion-general.pdf' });
   };
 
   const exportPreceptorScheduleToPDFLegacy = () => {
