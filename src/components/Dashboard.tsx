@@ -24,10 +24,10 @@ interface PdfGroup {
 }
 
 const PDF_BOXES_PER_PAGE = 2;
-const PDF_PAGE_PADDING_MM = 4;
-const PDF_PAGE_GAP_MM = 3;
-const PDF_BOX_WIDTH_MM = 202;
-const PDF_BOX_HEIGHT_MM = 143;
+const PDF_PAGE_PADDING_MM = 5;
+const PDF_PAGE_GAP_MM = 2;
+const PDF_BOX_WIDTH_MM = 150;
+const PDF_BOX_HEIGHT_MM = 140;
 const PDF_PAGE_WIDTH_MM = 210;
 const PDF_PAGE_HEIGHT_MM = 297;
 
@@ -190,7 +190,7 @@ export function Dashboard() {
 
     const pagesContent = pages.map((page, pageIndex) => `
       <section style="width: ${PDF_PAGE_WIDTH_MM}mm; height: ${PDF_PAGE_HEIGHT_MM}mm; padding: ${PDF_PAGE_PADDING_MM}mm; box-sizing: border-box; overflow: hidden; background: #fff; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; ${pageIndex === pages.length - 1 ? '' : 'page-break-after: always; break-after: page;'}">
-        <div style="display: flex; flex-direction: column; align-items: center; gap: ${PDF_PAGE_GAP_MM}mm;">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: ${PDF_PAGE_GAP_MM}mm; min-height: 100%;">
           ${page.map((box) => `
             <div style="width: ${PDF_BOX_WIDTH_MM}mm; height: ${PDF_BOX_HEIGHT_MM}mm; padding: 1mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; break-inside: avoid;">
               <div style="padding-bottom: 1px; margin-bottom: 2px;">
@@ -408,7 +408,7 @@ export function Dashboard() {
       return;
     }
 
-    exportToPDFLegacy(selectedGeneralCourseIds);
+    exportToPDF(selectedGeneralCourseIds);
   };
 
   const exportPreceptorScheduleToPDFLegacy = () => {
